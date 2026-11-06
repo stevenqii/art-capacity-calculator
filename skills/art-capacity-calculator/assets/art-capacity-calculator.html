@@ -87,6 +87,7 @@
     <button class="tab" data-pane="scene-people">场景 · 人力产能</button>
     <button class="tab" data-pane="ui">UI · 排期计划</button>
     <button class="tab" data-pane="exec">执行 · 基线质量</button>
+    <button class="tab" data-pane="vendor">供应商 · 管理</button>
   </nav>
 
 
@@ -1236,6 +1237,96 @@
   </div>
 </section>
 
+<section class="pane" data-pane="vendor">
+  <div class="card">
+    <h2><span class="num">1</span>供应商台账 <span class="badge">能力 / 价格 / 质量</span></h2>
+    <div class="hint">管理外部供应商的产能、单价、交期、返工和准时率；订单在下方单独分配。</div>
+    <div class="coefbar">
+      <button class="btn small" id="vendorAdd">+ 添加供应商</button>
+      <span class="sub" id="vendorNote" style="align-self:center;"></span>
+    </div>
+    <div class="kpis" id="vendorKpis" style="margin:14px 0;"></div>
+    <div class="overflow">
+      <table id="vendorTable">
+        <thead>
+          <tr>
+            <th style="width:120px;text-align:left;">名称</th>
+            <th style="width:80px;">类型</th>
+            <th style="width:80px;">状态</th>
+            <th style="width:80px;text-align:left;">联系人</th>
+            <th style="width:90px;">周产能</th>
+            <th style="width:86px;">单价</th>
+            <th style="width:76px;">交期(周)</th>
+            <th style="width:76px;">返工%</th>
+            <th style="width:76px;">准时%</th>
+            <th style="width:104px;">合同起</th>
+            <th style="width:104px;">合同止</th>
+            <th style="text-align:left;">备注</th>
+            <th style="width:44px;"></th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">2</span>供应商订单 <span class="badge">分配 / 金额 / 验收</span></h2>
+    <div class="hint">按项目 / 管线把任务分给供应商；金额 = 人天 × 单价，验收%用于算已验收金额。</div>
+    <div class="coefbar">
+      <button class="btn small" id="vendorOrderAdd">+ 添加订单</button>
+      <span class="sub" id="vendorOrderNote" style="align-self:center;"></span>
+    </div>
+    <div class="overflow">
+      <table id="vendorOrderTable">
+        <thead>
+          <tr>
+            <th style="width:120px;text-align:left;">供应商</th>
+            <th style="width:76px;">管线</th>
+            <th style="text-align:left;">范围 / 任务</th>
+            <th style="width:80px;">人天</th>
+            <th style="width:86px;">单价</th>
+            <th style="width:96px;">金额</th>
+            <th style="width:104px;">开始</th>
+            <th style="width:104px;">结束</th>
+            <th style="width:90px;">状态</th>
+            <th style="width:80px;">验收%</th>
+            <th style="text-align:left;">备注</th>
+            <th style="width:44px;"></th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">3</span>评分与产能 <span class="badge">谁更稳、谁更划算</span></h2>
+    <div class="hint">综合分 = 质量 35% + 准时 25% + 返工 15% + 价格 15% + 配合 10%。负荷 = 订单人天 / (周产能 × 订单周数)。</div>
+    <div class="kpis" id="vendorScoreKpis" style="margin:14px 0;"></div>
+    <div class="overflow">
+      <table id="vendorScoreTable">
+        <thead>
+          <tr>
+            <th style="text-align:left;">供应商</th>
+            <th>质量</th>
+            <th>准时</th>
+            <th>返工</th>
+            <th>价格分</th>
+            <th>配合</th>
+            <th>综合分</th>
+            <th>排名</th>
+            <th>承诺人天</th>
+            <th>负荷</th>
+            <th>状态</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
   <div class="row-actions">
     <button class="btn" id="exportBtn">导出表格（Excel 可打开）</button>
     <button class="btn ghost" id="resetBtn">恢复默认</button>
@@ -1375,6 +1466,42 @@ function defaultExec() {
 }
 function defaultPortfolio() {
   return { horizonWeeks: 26, projects: [] };
+}
+var VENDOR_TYPES = ["综合", "原画", "模型", "绑定", "动作", "特效", "场景", "UI", "其他"];
+var VENDOR_STATUS = ["潜在", "合作中", "暂停", "淘汰"];
+var VENDOR_ORDER_STATUS = ["计划", "进行中", "已交付", "验收中", "已验收", "暂停"];
+function defaultVendors() {
+  return [
+    {
+      id: "V01", name: "星火模型", type: "模型", status: "合作中", contact: "张",
+      capacity: 120, price: 900, leadWeeks: 2, reworkPct: 12, onTimePct: 88,
+      quality: 4, cooperation: 4, contractStart: "2026-01-01", contractEnd: "2026-12-31", note: "角色 / 场景模型"
+    },
+    {
+      id: "V02", name: "远景场景", type: "场景", status: "合作中", contact: "李",
+      capacity: 160, price: 1000, leadWeeks: 3, reworkPct: 18, onTimePct: 82,
+      quality: 3, cooperation: 4, contractStart: "2026-03-01", contractEnd: "2027-03-31", note: "地编 / 白模"
+    },
+    {
+      id: "V03", name: "像素 UI", type: "UI", status: "潜在", contact: "王",
+      capacity: 80, price: 850, leadWeeks: 1, reworkPct: 10, onTimePct: 90,
+      quality: 4, cooperation: 3, contractStart: "", contractEnd: "", note: "UI 视觉 / 切图"
+    }
+  ];
+}
+function defaultVendorOrders() {
+  return [
+    {
+      id: "O01", vendorId: "V01", pipeline: "角色", scope: "角色模型外包",
+      md: 220, rate: 900, start: "2026-11-09", end: "2027-01-31",
+      status: "进行中", acceptedPct: 0, note: ""
+    },
+    {
+      id: "O02", vendorId: "V02", pipeline: "场景", scope: "场景地编外包",
+      md: 180, rate: 1000, start: "2026-11-23", end: "2027-02-28",
+      status: "计划", acceptedPct: 0, note: ""
+    }
+  ];
 }
 var UI_STD = {
   "S": { "UX": 2, "视觉": 6, "切图": 1.5, "动效": 3, "整合": 4, "适配": 1.5, "验收": 1 },
@@ -1576,6 +1703,28 @@ function ensurePortfolio() {
   });
 }
 
+function ensureVendorData() {
+  if (!Array.isArray(state.vendors)) state.vendors = defaultVendors();
+  if (!Array.isArray(state.vendorOrders)) state.vendorOrders = defaultVendorOrders();
+  state.vendors.forEach(function (v, i) {
+    if (!v.id) v.id = "V" + String(i + 1).padStart(2, "0");
+    if (!v.name) v.name = "供应商 " + (i + 1);
+    if (!v.type) v.type = "综合";
+    if (!v.status) v.status = "潜在";
+    ["capacity", "price", "leadWeeks", "reworkPct", "onTimePct", "quality", "cooperation"].forEach(function (k) {
+      if (v[k] === undefined) v[k] = k === "quality" || k === "cooperation" ? 3 : 0;
+    });
+  });
+  state.vendorOrders.forEach(function (o, i) {
+    if (!o.id) o.id = "O" + String(i + 1).padStart(2, "0");
+    if (!o.pipeline) o.pipeline = "其他";
+    if (o.md === undefined) o.md = 0;
+    if (o.rate === undefined) o.rate = 0;
+    if (!o.status) o.status = "计划";
+    if (o.acceptedPct === undefined) o.acceptedPct = 0;
+  });
+}
+
 function ensureSceneData() {
   if (!state.scene || !state.scene.std) { state.scene = defaultScene(); return; }
   var sc = state.scene;
@@ -1661,6 +1810,7 @@ var state = {
   ui: null, uiMigrated: false,
   exec: null,
   portfolio: null,
+  vendors: null, vendorOrders: null,
   sceneWBS: null,
   sceneScenarios: [], sceneOutPrice: 1000
 };
@@ -2774,7 +2924,7 @@ function deleteScenario(id) {
 
 
 /* ============ 页签 ============ */
-var TAB_KEYS = ["task", "schedule", "people", "scene", "scene-wbs", "scene-people", "ui", "exec"];
+var TAB_KEYS = ["task", "schedule", "people", "scene", "scene-wbs", "scene-people", "ui", "exec", "vendor"];
 function switchTab(name) {
   if (TAB_KEYS.indexOf(name) < 0) name = "task";
   var panes = document.querySelectorAll(".pane");
@@ -4984,6 +5134,310 @@ function renderPortfolio() {
 }
 
 
+/* ============ 供应商管理 ============ */
+function vendorById(id) {
+  return state.vendors.filter(function (v) { return v.id === id; })[0] || null;
+}
+function vendorOrderWeeks(o) {
+  if (o.start && o.end) {
+    var a = parseDate(o.start), b = parseDate(o.end);
+    if (a && b && b > a) return Math.max(1, (b.getTime() - a.getTime()) / 86400000 / 7);
+  }
+  return 1;
+}
+function vendorOrderAmount(o) {
+  return Math.max(0, num(o.md, 0)) * Math.max(0, num(o.rate, 0));
+}
+function vendorOrderSummary(vendorId) {
+  var md = 0, amount = 0, accepted = 0, weeks = 1;
+  state.vendorOrders.forEach(function (o) {
+    if (o.vendorId !== vendorId) return;
+    md += Math.max(0, num(o.md, 0));
+    amount += vendorOrderAmount(o);
+    accepted += vendorOrderAmount(o) * Math.max(0, Math.min(100, num(o.acceptedPct, 0))) / 100;
+    weeks = Math.max(weeks, vendorOrderWeeks(o));
+  });
+  return { md: md, amount: amount, accepted: accepted, weeks: weeks };
+}
+function vendorScore(v, maxPrice) {
+  var quality = Math.max(0, Math.min(5, num(v.quality, 3))) / 5 * 100;
+  var onTime = Math.max(0, Math.min(100, num(v.onTimePct, 0)));
+  var rework = 100 - Math.max(0, Math.min(100, num(v.reworkPct, 0)));
+  var priceScore = maxPrice > 0 ? Math.max(0, 100 - num(v.price, 0) / maxPrice * 100) : 100;
+  var coop = Math.max(0, Math.min(5, num(v.cooperation, 3))) / 5 * 100;
+  var total = quality * 0.35 + onTime * 0.25 + rework * 0.15 + priceScore * 0.15 + coop * 0.10;
+  return { quality: quality, onTime: onTime, rework: rework, priceScore: priceScore, coop: coop, total: total };
+}
+function vendorAdd() {
+  ensureVendorData();
+  var n = state.vendors.length + 1;
+  state.vendors.push({
+    id: "V" + String(n).padStart(2, "0"), name: "供应商 " + n,
+    type: "综合", status: "潜在", contact: "", capacity: 100, price: 1000,
+    leadWeeks: 2, reworkPct: 10, onTimePct: 90, quality: 3, cooperation: 3,
+    contractStart: "", contractEnd: "", note: ""
+  });
+  renderVendors(); save();
+}
+function vendorDelete(id) {
+  var v = vendorById(id);
+  if (!v) return;
+  if (!confirm("删除供应商「" + v.name + "」及其订单？")) return;
+  state.vendors = state.vendors.filter(function (x) { return x.id !== id; });
+  state.vendorOrders = state.vendorOrders.filter(function (o) { return o.vendorId !== id; });
+  renderVendors(); save();
+}
+function vendorOrderAdd() {
+  ensureVendorData();
+  var v = state.vendors[0];
+  var n = state.vendorOrders.length + 1;
+  state.vendorOrders.push({
+    id: "O" + String(n).padStart(2, "0"),
+    vendorId: v ? v.id : "", pipeline: "角色", scope: "新外包任务",
+    md: 0, rate: v ? v.price : 0, start: "", end: "",
+    status: "计划", acceptedPct: 0, note: ""
+  });
+  renderVendors(); save();
+}
+function renderVendors() {
+  ensureVendorData();
+  var maxPrice = 0;
+  state.vendors.forEach(function (v) { maxPrice = Math.max(maxPrice, num(v.price, 0)); });
+  var committedMD = 0, committedAmount = 0, active = 0;
+  state.vendors.forEach(function (v) {
+    var s = vendorOrderSummary(v.id);
+    committedMD += s.md;
+    committedAmount += s.amount;
+    if (v.status === "合作中") active++;
+  });
+  var scores = state.vendors.map(function (v) {
+    var s = vendorOrderSummary(v.id);
+    var sc = vendorScore(v, maxPrice);
+    var cap = num(v.capacity, 0) * Math.max(1, s.weeks);
+    var load = cap > 0 ? s.md / cap * 100 : 0;
+    return { v: v, s: s, sc: sc, load: load, total: sc.total };
+  }).sort(function (a, b) { return b.total - a.total; });
+  var avgScore = scores.length ? scores.reduce(function (a, x) { return a + x.total; }, 0) / scores.length : 0;
+  var overloaded = scores.filter(function (x) { return x.load > 100; }).length;
+
+  var kp = document.getElementById("vendorKpis");
+  if (kp) {
+    kp.innerHTML = "";
+    function kpi(label, val, unit, cls) {
+      var d = document.createElement("div");
+      d.className = "kpi" + (cls ? " " + cls : "");
+      d.innerHTML = '<div class="label">' + label + '</div><div class="val">' + val +
+        (unit ? '<small>' + unit + '</small>' : '') + '</div>';
+      kp.appendChild(d);
+    }
+    kpi("供应商", state.vendors.length, "家");
+    kpi("合作中", active, "家");
+    kpi("承诺人天", fmt(committedMD, 0), "人天");
+    kpi("承诺金额", "¥" + fmt(committedAmount, 0), "");
+    kpi("平均评分", fmt(avgScore, 0), "分", avgScore >= 75 ? "ok" : "");
+    kpi("超负荷", overloaded, "家", overloaded > 0 ? "bad" : "ok");
+  }
+  var sk = document.getElementById("vendorScoreKpis");
+  if (sk) {
+    sk.innerHTML = "";
+    var best = scores[0];
+    var d = document.createElement("div");
+    d.className = "kpi";
+    d.innerHTML = '<div class="label">最高分供应商</div><div class="val">' +
+      (best ? best.v.name + '<small>' + fmt(best.total, 0) + ' 分</small>' : '—') + '</div>';
+    sk.appendChild(d);
+    var d2 = document.createElement("div");
+    d2.className = "kpi";
+    d2.innerHTML = '<div class="label">已验收金额</div><div class="val">¥' +
+      fmt(state.vendors.reduce(function (a, v) { return a + vendorOrderSummary(v.id).accepted; }, 0), 0) + '</div>';
+    sk.appendChild(d2);
+  }
+
+  var vt = document.querySelector("#vendorTable tbody");
+  if (vt) {
+    vt.innerHTML = "";
+    state.vendors.forEach(function (v) {
+      var tr = document.createElement("tr");
+      function td(txt, style) {
+        var d = document.createElement("td"); d.textContent = txt;
+        if (style) d.style.cssText = style;
+        tr.appendChild(d); return d;
+      }
+      var tdN = document.createElement("td"); tdN.style.textAlign = "left";
+      var inN = document.createElement("input"); inN.value = v.name; inN.style.textAlign = "left";
+      inN.addEventListener("input", function () { v.name = this.value; save(); });
+      tdN.appendChild(inN); tr.appendChild(tdN);
+      function selectCell(list, key) {
+        var td = document.createElement("td");
+        var sel = document.createElement("select");
+        list.forEach(function (x) { var o = document.createElement("option"); o.value = x; o.textContent = x; if (v[key] === x) o.selected = true; sel.appendChild(o); });
+        sel.addEventListener("change", function () { v[key] = this.value; renderVendors(); save(); });
+        td.appendChild(sel); tr.appendChild(td);
+      }
+      selectCell(VENDOR_TYPES, "type");
+      selectCell(VENDOR_STATUS, "status");
+      var tdC = document.createElement("td"); tdC.style.textAlign = "left";
+      var inC = document.createElement("input"); inC.value = v.contact || ""; inC.style.textAlign = "left";
+      inC.addEventListener("input", function () { v.contact = this.value; save(); });
+      tdC.appendChild(inC); tr.appendChild(tdC);
+      function numCell(key, min, max, step) {
+        var td = document.createElement("td");
+        var inp = document.createElement("input");
+        inp.type = "number"; inp.min = String(min); inp.max = String(max); inp.step = String(step); inp.className = "num";
+        inp.value = v[key];
+        inp.addEventListener("change", function () {
+          v[key] = Math.max(min, Math.min(max, num(this.value, 0)));
+          renderVendors(); save();
+        });
+        td.appendChild(inp); tr.appendChild(td);
+      }
+      numCell("capacity", 0, 99999, 10);
+      numCell("price", 0, 999999, 50);
+      numCell("leadWeeks", 0, 52, 1);
+      numCell("reworkPct", 0, 100, 1);
+      numCell("onTimePct", 0, 100, 1);
+      function dateCell(key) {
+        var td = document.createElement("td");
+        var inp = document.createElement("input"); inp.type = "date"; inp.value = v[key] || "";
+        inp.addEventListener("change", function () { v[key] = this.value; save(); });
+        td.appendChild(inp); tr.appendChild(td);
+      }
+      dateCell("contractStart");
+      dateCell("contractEnd");
+      var tdNote = document.createElement("td"); tdNote.style.textAlign = "left";
+      var inNote = document.createElement("input"); inNote.value = v.note || ""; inNote.style.textAlign = "left";
+      inNote.addEventListener("input", function () { v.note = this.value; save(); });
+      tdNote.appendChild(inNote); tr.appendChild(tdNote);
+      var tdD = document.createElement("td");
+      var btn = document.createElement("button"); btn.className = "del"; btn.textContent = "×";
+      btn.addEventListener("click", function () { vendorDelete(v.id); });
+      tdD.appendChild(btn); tr.appendChild(tdD);
+      vt.appendChild(tr);
+    });
+  }
+
+  var ot = document.querySelector("#vendorOrderTable tbody");
+  if (ot) {
+    ot.innerHTML = "";
+    state.vendorOrders.forEach(function (o) {
+      var tr = document.createElement("tr");
+      function td(txt, style) {
+        var d = document.createElement("td"); d.textContent = txt;
+        if (style) d.style.cssText = style;
+        tr.appendChild(d); return d;
+      }
+      var tdV = document.createElement("td");
+      var selV = document.createElement("select");
+      state.vendors.forEach(function (v) {
+        var opt = document.createElement("option"); opt.value = v.id; opt.textContent = v.name;
+        if (o.vendorId === v.id) opt.selected = true; selV.appendChild(opt);
+      });
+      selV.addEventListener("change", function () {
+        o.vendorId = this.value;
+        var v = vendorById(this.value);
+        if (v && !o.rate) o.rate = v.price;
+        renderVendors(); save();
+      });
+      tdV.appendChild(selV); tr.appendChild(tdV);
+      var tdP = document.createElement("td");
+      var selP = document.createElement("select");
+      ["角色", "场景", "UI", "其他"].forEach(function (x) {
+        var opt = document.createElement("option"); opt.value = x; opt.textContent = x;
+        if (o.pipeline === x) opt.selected = true; selP.appendChild(opt);
+      });
+      selP.addEventListener("change", function () { o.pipeline = this.value; save(); });
+      tdP.appendChild(selP); tr.appendChild(tdP);
+      var tdS = document.createElement("td"); tdS.style.textAlign = "left";
+      var inS = document.createElement("input"); inS.value = o.scope || ""; inS.style.textAlign = "left";
+      inS.addEventListener("input", function () { o.scope = this.value; save(); });
+      tdS.appendChild(inS); tr.appendChild(tdS);
+      function orderNum(key, min, max, step) {
+        var td = document.createElement("td");
+        var inp = document.createElement("input"); inp.type = "number"; inp.min = String(min); inp.max = String(max); inp.step = String(step); inp.className = "num";
+        inp.value = o[key];
+        inp.addEventListener("change", function () {
+          o[key] = Math.max(min, Math.min(max, num(this.value, 0)));
+          renderVendors(); save();
+        });
+        td.appendChild(inp); tr.appendChild(td);
+      }
+      orderNum("md", 0, 999999, 10);
+      orderNum("rate", 0, 999999, 50);
+      td("¥" + fmt(vendorOrderAmount(o), 0));
+      function orderDate(key) {
+        var td = document.createElement("td");
+        var inp = document.createElement("input"); inp.type = "date"; inp.value = o[key] || "";
+        inp.addEventListener("change", function () { o[key] = this.value; renderVendors(); save(); });
+        td.appendChild(inp); tr.appendChild(td);
+      }
+      orderDate("start");
+      orderDate("end");
+      var tdSt = document.createElement("td");
+      var selSt = document.createElement("select");
+      VENDOR_ORDER_STATUS.forEach(function (x) {
+        var opt = document.createElement("option"); opt.value = x; opt.textContent = x;
+        if (o.status === x) opt.selected = true; selSt.appendChild(opt);
+      });
+      selSt.addEventListener("change", function () { o.status = this.value; renderVendors(); save(); });
+      tdSt.appendChild(selSt); tr.appendChild(tdSt);
+      orderNum("acceptedPct", 0, 100, 5);
+      var tdNote = document.createElement("td"); tdNote.style.textAlign = "left";
+      var inNote = document.createElement("input"); inNote.value = o.note || ""; inNote.style.textAlign = "left";
+      inNote.addEventListener("input", function () { o.note = this.value; save(); });
+      tdNote.appendChild(inNote); tr.appendChild(tdNote);
+      var tdD = document.createElement("td");
+      var btn = document.createElement("button"); btn.className = "del"; btn.textContent = "×";
+      btn.addEventListener("click", function () {
+        var i = state.vendorOrders.indexOf(o);
+        if (i >= 0) state.vendorOrders.splice(i, 1);
+        renderVendors(); save();
+      });
+      tdD.appendChild(btn); tr.appendChild(tdD);
+      ot.appendChild(tr);
+    });
+  }
+
+  var st = document.querySelector("#vendorScoreTable tbody");
+  if (st) {
+    st.innerHTML = "";
+    scores.forEach(function (x, idx) {
+      var tr = document.createElement("tr");
+      function td(txt, style) {
+        var d = document.createElement("td"); d.textContent = txt;
+        if (style) d.style.cssText = style;
+        tr.appendChild(d); return d;
+      }
+      td(x.v.name, "text-align:left;font-weight:600;");
+      function scoreInput(key) {
+        var td = document.createElement("td");
+        var inp = document.createElement("input"); inp.type = "number"; inp.min = "1"; inp.max = "5"; inp.step = "1"; inp.className = "num";
+        inp.value = x.v[key];
+        inp.addEventListener("change", function () {
+          x.v[key] = Math.max(1, Math.min(5, Math.round(num(this.value, 3))));
+          renderVendors(); save();
+        });
+        td.appendChild(inp); tr.appendChild(td);
+      }
+      scoreInput("quality");
+      td(fmt(x.sc.onTime, 0) + "%");
+      td(fmt(x.v.reworkPct, 0) + "%");
+      td(fmt(x.sc.priceScore, 0));
+      scoreInput("cooperation");
+      td(fmt(x.total, 0), "font-weight:700;");
+      td(idx + 1);
+      td(fmt(x.s.md, 0));
+      td(fmt(x.load, 0) + "%");
+      td(x.load > 100 ? "超负荷" : "正常", x.load > 100 ? "color:#c0392b;font-weight:600;" : "color:#2f7d4f;");
+      st.appendChild(tr);
+    });
+  }
+  var note = document.getElementById("vendorNote");
+  if (note) note.textContent = "共 " + state.vendors.length + " 家 · 承诺 " + fmt(committedMD, 0) + " 人天";
+  var onote = document.getElementById("vendorOrderNote");
+  if (onote) onote.textContent = "共 " + state.vendorOrders.length + " 个订单 · 金额 ¥" + fmt(committedAmount, 0);
+}
+
+
 function recalcAll() {
   renderRoster();
   renderSceneRoster();
@@ -6431,6 +6885,35 @@ function exportCSV() {
       fmt(total - (pCap[g] || 0), 0), (pCap[g] > 0 ? fmt(total / pCap[g] * 100, 0) : "0") + "%"]);
   });
 
+  ensureVendorData();
+  push([]);
+  push(["【供应商台账】"]);
+  push(["名称", "类型", "状态", "联系人", "周产能", "单价", "交期(周)", "返工%", "准时%", "质量(1-5)", "配合(1-5)", "合同起", "合同止", "备注"]);
+  state.vendors.forEach(function (v) {
+    push([v.name, v.type, v.status, v.contact || "", v.capacity, v.price, v.leadWeeks,
+      v.reworkPct, v.onTimePct, v.quality, v.cooperation, v.contractStart || "", v.contractEnd || "", v.note || ""]);
+  });
+  push([]);
+  push(["【供应商订单】"]);
+  push(["供应商", "管线", "范围/任务", "人天", "单价", "金额", "开始", "结束", "状态", "验收%", "备注"]);
+  state.vendorOrders.forEach(function (o) {
+    var v = vendorById(o.vendorId);
+    push([v ? v.name : "", o.pipeline, o.scope || "", o.md, o.rate, vendorOrderAmount(o),
+      o.start || "", o.end || "", o.status, o.acceptedPct, o.note || ""]);
+  });
+  push([]);
+  push(["【供应商评分】"]);
+  push(["供应商", "综合分", "承诺人天", "负荷", "状态"]);
+  var vmax = 0;
+  state.vendors.forEach(function (v) { vmax = Math.max(vmax, num(v.price, 0)); });
+  state.vendors.map(function (v) {
+    var s = vendorOrderSummary(v.id);
+    var load = num(v.capacity, 0) * Math.max(1, s.weeks) > 0 ? s.md / (num(v.capacity, 0) * Math.max(1, s.weeks)) * 100 : 0;
+    return { v: v, s: s, load: load, score: vendorScore(v, vmax).total };
+  }).sort(function (a, b) { return b.score - a.score; }).forEach(function (x) {
+    push([x.v.name, fmt(x.score, 0), fmt(x.s.md, 0), fmt(x.load, 0) + "%", x.load > 100 ? "超负荷" : "正常"]);
+  });
+
   var csv = "\uFEFF" + lines.join("\r\n");
   var blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   var url = URL.createObjectURL(blob);
@@ -6491,6 +6974,7 @@ function load() {
     ensureExecData();
     if (!state.portfolio) state.portfolio = defaultPortfolio();
     ensurePortfolio();
+    ensureVendorData();
     return true;
   } catch (e) { return false; }
 }
@@ -6520,6 +7004,8 @@ function defaults() {
   state.ui = defaultUI(); state.uiMigrated = false;
   state.exec = defaultExec();
   state.portfolio = defaultPortfolio();
+  state.vendors = defaultVendors();
+  state.vendorOrders = defaultVendorOrders();
   BLOCKS.forEach(function (b) { state.lags[b.key] = b.defaultLag; });
 }
 
@@ -6600,7 +7086,7 @@ function resetAll() {
   renderStd(); renderEst(); renderTasks(); renderExtras(); renderRoster(); renderHolidays();
   renderSceneStd(); renderSceneTasks(); renderSceneReuse(); renderSceneRoster(); renderWBS(); renderSceneEst(); recalc();
   renderSceneRisk(window.__sceneLast || computeScene());
-  renderUIRoster(); recalcUI(); renderExec();
+  renderUIRoster(); recalcUI(); renderExec(); renderVendors();
 }
 
 /* ============ 初始化 ============ */
@@ -6712,6 +7198,8 @@ function resetAll() {
     state.portfolio.picked = Math.max(0, num(this.value, 0));
     renderPortfolio(); save();
   });
+  document.getElementById("vendorAdd").addEventListener("click", vendorAdd);
+  document.getElementById("vendorOrderAdd").addEventListener("click", vendorOrderAdd);
   document.getElementById("wbsAdd").addEventListener("click", wbsAddScene);
   document.getElementById("wbsRebuild").addEventListener("click", wbsRebuild);
   document.getElementById("wbsApplyCounts").addEventListener("click", wbsApplyCounts);
@@ -6792,6 +7280,7 @@ function resetAll() {
   renderSceneRisk(window.__sceneLast || computeScene());
   recalcUI();
   renderExec();
+  renderVendors();
 
   var tabBtns = document.querySelectorAll("#tabNav .tab");
   for (var ti = 0; ti < tabBtns.length; ti++) {
