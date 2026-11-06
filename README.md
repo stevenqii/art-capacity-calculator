@@ -32,6 +32,43 @@ https://stevenqii.github.io/art-capacity-calculator/
 - 按界面逐条排期，组件库单独按一次性投入
 - UI 人员批量添加、名单导入、独立职级系数、团队产能
 
+## 作为 DSH Skill 使用
+
+仓库里的 `skills/art-capacity-calculator/` 是 DeepSeek Harness 的 skill 版本：
+
+```text
+skills/art-capacity-calculator/
+├── SKILL.md
+├── assets/art-capacity-calculator.html
+└── references/
+    ├── methodology.md
+    ├── audit-checklist.md
+    └── examples.md
+```
+
+安装到用户级 DSH skill 目录：
+
+**Windows PowerShell**
+
+```powershell
+New-Item -ItemType Directory -Force "$env:USERPROFILE\.dsh\skills" | Out-Null
+Copy-Item ".\skills\art-capacity-calculator" "$env:USERPROFILE\.dsh\skills\" -Recurse -Force
+```
+
+**macOS / Linux**
+
+```bash
+mkdir -p ~/.dsh/skills
+cp -R skills/art-capacity-calculator ~/.dsh/skills/
+```
+
+重开一个 DSH 会话后，skill 目录中会出现 `art-capacity-calculator`。它包含：
+
+- 角色 / 场景 / UI 三条管线的 WBS 与排期方法
+- 产能、缺口、三点估算、缺口三解公式
+- 专业校验清单
+- 可直接打开的交互版 HTML 工具
+
 ## 使用
 
 1. 下载 `index.html`
