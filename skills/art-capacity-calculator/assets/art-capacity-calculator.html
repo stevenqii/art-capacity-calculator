@@ -88,6 +88,7 @@
     <button class="tab" data-pane="ui">UI · 排期计划</button>
     <button class="tab" data-pane="exec">执行 · 基线质量</button>
     <button class="tab" data-pane="vendor">供应商 · 管理</button>
+    <button class="tab" data-pane="vendor-onboard">供应商准入</button>
   </nav>
 
 
@@ -1242,8 +1243,7 @@
     <h2><span class="num">1</span>供应商台账 <span class="badge">能力 / 价格 / 质量</span></h2>
     <div class="hint">管理外部供应商的产能、单价、交期、返工和准时率；订单在下方单独分配。</div>
     <div class="coefbar">
-      <button class="btn small" id="vendorAdd">+ 添加供应商</button>
-      <label class="param">查看 <select id="vendorDetailPick"></select></label>
+      <button class="btn small" id="vendorGoOnboard">供应商准入 / 新建 →</button>
       <span class="sub" id="vendorNote" style="align-self:center;"></span>
     </div>
     <div class="kpis" id="vendorKpis" style="margin:14px 0;"></div>
@@ -1272,21 +1272,7 @@
   </div>
 
   <div class="card">
-    <h2><span class="num">2</span>供应商详情 <span class="badge">准入 / 合同 / 产能</span></h2>
-    <div class="hint">顶部「查看」选择供应商；这里维护等级、合同、付款、风险和分管线产能。</div>
-    <div id="vendorDetailBody"></div>
-    <div class="kpis" id="vendorDetailKpis" style="margin:14px 0;"></div>
-  </div>
-
-  <div class="card">
-    <h2><span class="num">3</span>准入审批 <span class="badge">资料 / 样品 / 商务</span></h2>
-    <div class="hint">准入路径：草稿 → 资料审核 → 样品测试 → 商务审核 → 已准入；驳回后可重新提交。六项资料齐全才能最终准入。</div>
-    <div class="kpis" id="vendorApprovalKpis" style="margin:14px 0;"></div>
-    <div id="vendorApprovalBody"></div>
-  </div>
-
-  <div class="card">
-    <h2><span class="num">4</span>供应商订单 <span class="badge">分配 / 金额 / 验收</span></h2>
+    <h2><span class="num">2</span>供应商订单 <span class="badge">分配 / 金额 / 验收</span></h2>
     <div class="hint">按项目 / 管线把任务分给供应商；金额 = 人天 × 单价，验收%用于算已验收金额。</div>
     <div class="coefbar">
       <button class="btn small" id="vendorOrderAdd">+ 添加订单</button>
@@ -1321,7 +1307,7 @@
   </div>
 
   <div class="card">
-    <h2><span class="num">5</span>产能热力图 <span class="badge">未来 12 周</span></h2>
+    <h2><span class="num">3</span>产能热力图 <span class="badge">未来 12 周</span></h2>
     <div class="hint">按订单起止把人天均摊到周，和供应商分管线产能对比；红色 = 超负荷。</div>
     <div class="overflow">
       <table id="vendorHeatTable">
@@ -1332,7 +1318,7 @@
   </div>
 
   <div class="card">
-    <h2><span class="num">6</span>评分与产能 <span class="badge">谁更稳、谁更划算</span></h2>
+    <h2><span class="num">4</span>评分与产能 <span class="badge">谁更稳、谁更划算</span></h2>
     <div class="hint">综合分 = 质量 35% + 准时 25% + 返工 15% + 价格 15% + 配合 10%。负荷 = 订单人天 / (周产能 × 订单周数)。</div>
     <div class="kpis" id="vendorScoreKpis" style="margin:14px 0;"></div>
     <div class="overflow">
@@ -1358,9 +1344,35 @@
   </div>
 
   <div class="card">
-    <h2><span class="num">7</span>风险提醒 <span class="badge">合同 / 负荷 / 交付 / 质量</span></h2>
+    <h2><span class="num">5</span>风险提醒 <span class="badge">合同 / 负荷 / 交付 / 质量</span></h2>
     <div class="hint">自动检查合同到期、超负荷、逾期订单、首检驳回和高风险供应商。</div>
     <div id="vendorRiskList"></div>
+  </div>
+</section>
+
+<section class="pane" data-pane="vendor-onboard">
+  <div class="card">
+    <h2><span class="num">1</span>准入对象 <span class="badge">单家供应商</span></h2>
+    <div class="hint">这里只处理一家供应商：建档、详情、准入审批。供应商列表和订单仍在「供应商 · 管理」。</div>
+    <div class="coefbar">
+      <button class="btn small" id="vendorAdd">+ 添加供应商</button>
+      <label class="param">当前供应商 <select id="vendorDetailPick"></select></label>
+      <span class="sub" id="vendorOnboardNote" style="align-self:center;"></span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">2</span>供应商详情 <span class="badge">准入 / 合同 / 产能</span></h2>
+    <div class="hint">维护等级、合同、付款、风险和分管线产能；切换上方供应商即可编辑另一家。</div>
+    <div id="vendorDetailBody"></div>
+    <div class="kpis" id="vendorDetailKpis" style="margin:14px 0;"></div>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">3</span>准入审批 <span class="badge">资料 / 样品 / 商务</span></h2>
+    <div class="hint">准入路径：草稿 → 资料审核 → 样品测试 → 商务审核 → 已准入；驳回后可重新提交。六项资料齐全才能最终准入。</div>
+    <div class="kpis" id="vendorApprovalKpis" style="margin:14px 0;"></div>
+    <div id="vendorApprovalBody"></div>
   </div>
 </section>
 
@@ -1791,6 +1803,9 @@ function ensureVendorData() {
     if (!v.checklist) v.checklist = {};
     ONBOARD_CHECKS.forEach(function (x) { if (v.checklist[x[0]] === undefined) v.checklist[x[0]] = false; });
     if (!Array.isArray(v.approvalLog)) v.approvalLog = [];
+    if (v.onboarding === "已准入" && vendorChecklistDone(v) === 0) {
+      ONBOARD_CHECKS.forEach(function (x) { v.checklist[x[0]] = true; });
+    }
   });
   state.vendorOrders.forEach(function (o, i) {
     if (!o.id) o.id = "O" + String(i + 1).padStart(2, "0");
@@ -3019,7 +3034,7 @@ function deleteScenario(id) {
 
 
 /* ============ 页签 ============ */
-var TAB_KEYS = ["task", "schedule", "people", "scene", "scene-wbs", "scene-people", "ui", "exec", "vendor"];
+var TAB_KEYS = ["task", "schedule", "people", "scene", "scene-wbs", "scene-people", "ui", "exec", "vendor", "vendor-onboard"];
 function switchTab(name) {
   if (TAB_KEYS.indexOf(name) < 0) name = "task";
   var panes = document.querySelectorAll(".pane");
@@ -5404,6 +5419,8 @@ function renderVendorDetail() {
     kpi("未付", "¥" + fmt(Math.max(0, fin.outstanding), 0), fin.outstanding > 0 ? "bad" : "");
     kpi("首检通过", (fin.pass + fin.reject) > 0 ? fmt(fin.pass / (fin.pass + fin.reject) * 100, 0) + "%" : "—", "");
   }
+  var onote = document.getElementById("vendorOnboardNote");
+  if (onote) onote.textContent = v.name + " · " + v.onboarding + " · " + vendorChecklistDone(v) + "/" + ONBOARD_CHECKS.length + " 项资料";
 }
 function renderVendorOrderDetail() {
   var body = document.getElementById("vendorOrderDetailBody");
@@ -5739,8 +5756,9 @@ function renderVendorApproval() {
     '<div class="coefbar">' +
       '<label class="param">评审人 <input id="vaReviewer" style="width:100px;"></label>' +
       '<label class="param" style="flex:1;">备注 <input id="vaNote" style="width:100%;"></label>' +
-      '<button class="btn small" id="vaNext">' + (v.onboarding === "商务审核" ? "最终准入" : "进入下一阶段") + '</button>' +
-      '<button class="btn ghost small" id="vaReject">驳回</button>' +
+      '<button class="btn small" id="vaNext"' + (v.onboarding === "已准入" ? " disabled" : "") + '>' +
+        (v.onboarding === "已准入" ? "已准入" : (v.onboarding === "商务审核" ? "最终准入" : "进入下一阶段")) + '</button>' +
+      '<button class="btn ghost small" id="vaReject"' + (v.onboarding === "已准入" ? " disabled" : "") + '>驳回</button>' +
       '<button class="btn ghost small" id="vaReset">重置</button>' +
     '</div>' +
     '<div class="coefbar" style="margin-top:8px;">' +
@@ -7807,6 +7825,7 @@ function resetAll() {
   });
   document.getElementById("vendorAdd").addEventListener("click", vendorAdd);
   document.getElementById("vendorOrderAdd").addEventListener("click", vendorOrderAdd);
+  document.getElementById("vendorGoOnboard").addEventListener("click", function () { switchTab("vendor-onboard"); });
   document.getElementById("vendorDetailPick").addEventListener("change", function () {
     ensureVendorData();
     state.vendorPicked = this.value;
