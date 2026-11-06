@@ -663,11 +663,15 @@
 
   <!-- 1 场景口径 -->
   <div class="card">
-    <h2><span class="num">1</span>场景口径 <span class="badge">与角色共用日历 / 人员名单</span></h2>
+    <h2><span class="num">1</span>场景计算口径 <span class="badge">独立参数</span></h2>
     <div class="params">
+      <label class="param">每月工作日 <input id="sceneDaysPerMonth" type="number" value="21.75" step="0.25" min="1" max="31"></label>
+      <label class="param">有效工时系数 <input id="sceneEff" type="number" value="0.85" step="0.01" min="0.3" max="1"></label>
       <label class="param">场景目标周期(周) <input id="sceneTarget" type="number" value="18" step="1" min="1" max="104"></label>
-      <span class="sub">启动日、节假日、缓冲、有效工时沿用「角色 · 任务拆解」里的设置；场景人员在「场景 · 人力产能」页签单独维护。</span>
+      <label class="param">项目启动日 <input id="sceneStartDate" type="date"></label>
+      <label class="param">交付缓冲(周) <input id="sceneBufferWeeks" type="number" value="1" step="1" min="0" max="8"></label>
     </div>
+    <div class="hint" style="margin:10px 0 0;">场景启动日 / 有效工时 / 目标 / 缓冲独立于角色和 UI；人在「场景 · 人力产能」页签单独维护。</div>
     <div class="hint" style="margin:10px 0 0;">场景按清单里每个场景的面积 × 档位标准工时拆到 概念 / 白模 / 模型 / 材质 / 地编 / 灯光 / 优化，再按复用率折减模型 / 材质，最后在「场景计划排期」按 3 个资源池排期。</div>
     <div class="hint" id="sceneNote" style="display:none;color:#b7791f;"></div>
   </div>
@@ -934,10 +938,21 @@
 
 <section class="pane" data-pane="ui">
   <div class="card">
-    <h2><span class="num">1</span>UI 任务拆解 <span class="badge">界面 × 工序</span></h2>
+    <h2><span class="num">1</span>UI 计算口径 <span class="badge">独立参数</span></h2>
+    <div class="params">
+      <label class="param">每月工作日 <input id="uiDaysPerMonth" type="number" value="21.75" step="0.25" min="1" max="31"></label>
+      <label class="param">有效工时系数 <input id="uiEff" type="number" value="0.85" step="0.01" min="0.3" max="1"></label>
+      <label class="param">目标周期(周) <input id="uiTargetWeeks" type="number" min="1" step="1" value="14"></label>
+      <label class="param">项目启动日 <input id="uiStartDate" type="date"></label>
+      <label class="param">交付缓冲(周) <input id="uiBufferWeeks" type="number" value="1" step="1" min="0" max="8"></label>
+    </div>
+    <div class="hint" style="margin:10px 0 0;">UI 管线的启动日 / 有效工时 / 目标 / 缓冲独立于角色和场景；改完自动重算 UI 排期与产能。</div>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">2</span>UI 任务拆解 <span class="badge">界面 × 工序</span></h2>
     <div class="hint">按界面拆 UX / 视觉 / 切图 / 动效 / 整合 / 适配 / 验收；组件库是全场一次性投入，先做组件再铺界面。</div>
     <div class="coefbar">
-      <label class="param">UI 目标周期(周) <input id="uiTargetWeeks" type="number" min="1" step="1" value="14"></label>
       <label class="param">组件库一次性(人天) <input id="uiKitMD" type="number" min="0" step="1" value="12"></label>
       <label class="param">新增复杂度 <select id="uiAddTier"><option>S</option><option selected>A</option><option>B</option></select></label>
       <button class="btn small" id="uiAddScreen">+ 添加界面</button>
@@ -970,7 +985,7 @@
   </div>
 
   <div class="card">
-    <h2><span class="num">2</span>UI 计划排期 <span class="badge">逐界面依赖</span></h2>
+    <h2><span class="num">3</span>UI 计划排期 <span class="badge">逐界面依赖</span></h2>
     <div class="hint">每个界面按 UX → 视觉 → 切图 → 动效 → 整合 → 适配 → 验收 顺序走，三个 UI 资源池排队。</div>
     <div class="kpis" id="uiSchedKpis" style="margin-bottom:14px;"></div>
     <div class="overflow" style="margin-bottom:14px;">
@@ -1016,7 +1031,7 @@
   </div>
 
   <div class="card">
-    <h2><span class="num">3</span>UI 人力产能 <span class="badge">3 个 UI 资源池</span></h2>
+    <h2><span class="num">4</span>UI 人力产能 <span class="badge">3 个 UI 资源池</span></h2>
     <div class="hint">UI 人员独立于角色 / 场景；批量添加和导入只改 UI 名单。</div>
     <div class="coefbar">
       <label class="param">组长系数 <input id="uiKLead" type="number" value="0.6" step="0.05" min="0" max="1"></label>
@@ -1597,6 +1612,7 @@ function defaultUI() {
     std: clone(UI_STD),
     targetWeeks: 14,
     kitMD: 12,
+    daysPerMonth: 21.75, eff: 0.85, bufferWeeks: 1, startDate: "",
     coef: { lead: 0.6, senior: 1, mid: 1, junior: 0.9 }
   };
 }
@@ -1611,6 +1627,7 @@ function defaultScene() {
     mcCapacity: true,
     lags: { "场景概念": 0, "场景模型": 5, "地编灯光": 2 },
     coef: { lead: 0.6, senior: 1, mid: 1, junior: 0.9 },
+    daysPerMonth: 21.75, eff: 0.85, bufferWeeks: 1, startDate: "",
     cost: {
       outUnitPrice: 1000, monthCost: 20000, rampLoss: 25, reviewPct: 8,
       rampMonths: 2, rampEff: 0.6, recruitWeeks: 6, recruitCost: 8000, vendorCap: 200
@@ -1711,6 +1728,10 @@ function ensureUIData() {
   if (!u.std) u.std = clone(UI_STD);
   if (u.targetWeeks === undefined) u.targetWeeks = 14;
   if (u.kitMD === undefined) u.kitMD = 12;
+  if (u.daysPerMonth === undefined) u.daysPerMonth = state.daysPerMonth;
+  if (u.eff === undefined) u.eff = state.eff;
+  if (u.bufferWeeks === undefined) u.bufferWeeks = state.bufferWeeks;
+  if (!u.startDate) u.startDate = state.startDate;
   if (!u.coef) u.coef = { lead: 0.6, senior: 1, mid: 1, junior: 0.9 };
   ["S", "A", "B"].forEach(function (t) {
     if (!u.std[t]) u.std[t] = clone(UI_STD[t]);
@@ -1850,6 +1871,10 @@ function ensureSceneData() {
     sc.sceneLagsMigrated = true;
   }
   if (sc.targetWeeks === undefined) sc.targetWeeks = 18;
+  if (sc.daysPerMonth === undefined) sc.daysPerMonth = state.daysPerMonth;
+  if (sc.eff === undefined) sc.eff = state.eff;
+  if (sc.bufferWeeks === undefined) sc.bufferWeeks = state.bufferWeeks;
+  if (!sc.startDate) sc.startDate = state.startDate;
   if (!sc.est) sc.est = clone(SCENE_EST);
   SCENE_STAGES.forEach(function (s) {
     if (!sc.est[s]) sc.est[s] = clone(SCENE_EST[s]);
@@ -3724,7 +3749,7 @@ function simulateSceneSchedule(fte, hoursMap, capFactors, kitMD) {
       var list = ready[g];
       if (!list || !list.length) return;
       list.sort(sceneTaskPriority);
-      var cap = Math.max(0, (fte[g] || 0) * state.eff * (capFactors ? num(capFactors[g], 1) : 1));
+      var cap = Math.max(0, (fte[g] || 0) * state.scene.eff * (capFactors ? num(capFactors[g], 1) : 1));
       var rec = byGroup[g];
       list.forEach(function (t) {
         if (cap <= 1e-6) return;
@@ -3811,7 +3836,7 @@ function computeScene() {
   var totalMD = 0;
   SCENE_STAGES.forEach(function (s) { totalMD += demand[s]; });
 
-  var startD = parseDate(state.startDate);
+  var startD = parseDate(sc.startDate || state.startDate);
   buildCalendar(startD);
 
   var fte = {};
@@ -3824,9 +3849,9 @@ function computeScene() {
   var target = num(sc.targetWeeks, 18);
   var targetWD = workdayCount(0, Math.round(target * 7));
   var rows = SCENE_GROUPS.map(function (g) {
-    var capWeek = fte[g] * 5 * state.eff;
+    var capWeek = fte[g] * 5 * sc.eff;
     var weeks = fte[g] > 0 ? consumeForward(0, groupDemand[g], fte[g]).end / 7 : Infinity;
-    var gap = Math.max(0, groupDemand[g] - fte[g] * state.eff * targetWD);
+    var gap = Math.max(0, groupDemand[g] - fte[g] * sc.eff * targetWD);
     return { group: g, demand: groupDemand[g], capWeek: capWeek, weeks: weeks, gap: gap };
   });
 
@@ -3849,7 +3874,7 @@ function computeScene() {
     b.endDate = b.inf ? "—" : fmtDate(dateOfIdx(Math.round(b.end * 7)));
   });
 
-  var buffer = num(state.bufferWeeks, 1);
+  var buffer = num(sc.bufferWeeks, 1);
   var projectWeeks = maxEndIdx / 7 + buffer;
   var projectEndIdx = maxEndIdx + Math.round(buffer * 7);
   var missingGroups = missing.filter(function (x, i) { return missing.indexOf(x) === i; });
@@ -3955,7 +3980,7 @@ function simulateUISchedule(fte) {
       var list = ready[g];
       if (!list || !list.length) return;
       list.sort(uiTaskPriority);
-      var cap = Math.max(0, (fte[g] || 0) * state.eff);
+      var cap = Math.max(0, (fte[g] || 0) * state.ui.eff);
       var rec = byGroup[g];
       list.forEach(function (t) {
         if (cap <= 1e-6) return;
@@ -4000,7 +4025,7 @@ function simulateUISchedule(fte) {
 function computeUI() {
   ensureUIData();
   var ui = state.ui;
-  var startD = parseDate(state.startDate);
+  var startD = parseDate(ui.startDate || state.startDate);
   buildCalendar(startD);
   var fte = {};
   UI_GROUPS.forEach(function (g) { fte[g] = groupFte(g, ui.coef); });
@@ -4009,7 +4034,7 @@ function computeUI() {
   ui.screens.forEach(function (s) { totalMD += uiScreenTotal(s); });
   totalMD += Math.max(0, num(ui.kitMD, 0));
   var target = num(ui.targetWeeks, 14);
-  var buffer = num(state.bufferWeeks, 1);
+  var buffer = num(ui.bufferWeeks, 1);
   var projectWeeks = sim.maxEndIdx / 7 + buffer;
   var projectEndIdx = sim.maxEndIdx + Math.round(buffer * 7);
   sim.sched.forEach(function (b) {
@@ -4629,8 +4654,8 @@ function renderUICap(r) {
       box.appendChild(d);
     }
     var fte = 0; UI_GROUPS.forEach(function (g) { fte += r.fte[g]; });
-    var monthCap = fte * state.daysPerMonth * state.eff;
-    var months = state.daysPerMonth > 0 ? Math.max(0.1, r.projectWeeks * 5 / state.daysPerMonth) : 1;
+    var monthCap = fte * state.ui.daysPerMonth * state.ui.eff;
+    var months = state.ui.daysPerMonth > 0 ? Math.max(0.1, r.projectWeeks * 5 / state.ui.daysPerMonth) : 1;
     var demand = r.totalMD;
     kpi("UI 总需求", fmt(demand, 0), "人天");
     kpi("UI 团队 FTE", fmt(fte, 2), "人");
@@ -4643,15 +4668,15 @@ function renderUICap(r) {
   var demandBy = {};
   UI_GROUPS.forEach(function (g) { demandBy[g] = 0; });
   (r.tasks || []).forEach(function (t) { demandBy[t.group] += t.effort; });
-  var months = state.daysPerMonth > 0 ? Math.max(0.1, r.projectWeeks * 5 / state.daysPerMonth) : 1;
+  var months = state.ui.daysPerMonth > 0 ? Math.max(0.1, r.projectWeeks * 5 / state.ui.daysPerMonth) : 1;
   UI_GROUPS.forEach(function (g) {
     var tr = document.createElement("tr");
     var fte = r.fte[g];
     var head = groupHeadcount(g);
-    var monthCap = fte * state.daysPerMonth * state.eff;
+    var monthCap = fte * state.ui.daysPerMonth * state.ui.eff;
     var demand = demandBy[g] || 0;
     var use = monthCap > 0 ? demand / (monthCap * months) * 100 : 0;
-    [g, head, fmt(fte, 2), fmt(fte * 5 * state.eff, 1), fmt(monthCap, 1),
+    [g, head, fmt(fte, 2), fmt(fte * 5 * state.ui.eff, 1), fmt(monthCap, 1),
       fmt(use, 0) + "%", (monthCap > 0 ? "+" : "") + fmt(monthCap * months - demand, 1)].forEach(function (v, i) {
       var td = document.createElement("td"); td.textContent = v;
       if (i === 0) td.style.textAlign = "left";
@@ -4684,9 +4709,9 @@ function execSnapshot() {
   return {
     capturedAt: fmtDate(new Date()),
     startDate: state.startDate,
-    character: { md: c.totalMD, weeks: c.projectWeeks, target: c.target, end: c.projectEndDate, stages: cStages },
-    scene: { md: s.totalMD, weeks: s.projectWeeks, target: s.target, end: s.projectEndDate, stages: sStages },
-    ui: { md: u.totalMD, weeks: u.projectWeeks, target: u.target, end: u.projectEndDate, stages: uStages }
+    character: { md: c.totalMD, weeks: c.projectWeeks, target: c.target, end: c.projectEndDate, startDate: state.startDate, stages: cStages },
+    scene: { md: s.totalMD, weeks: s.projectWeeks, target: s.target, end: s.projectEndDate, startDate: state.scene.startDate || state.startDate, stages: sStages },
+    ui: { md: u.totalMD, weeks: u.projectWeeks, target: u.target, end: u.projectEndDate, startDate: state.ui.startDate || state.startDate, stages: uStages }
   };
 }
 function execCapture() {
@@ -6066,7 +6091,7 @@ function recalcUI(skipRoster) {
 }
 
 function renderSceneCap(r) {
-  var dpw = state.daysPerMonth;
+  var dpw = state.scene.daysPerMonth;
   var weeksPerMonth = dpw / 5;
   var targetMonths = r.target / weeksPerMonth;
 
@@ -6074,9 +6099,9 @@ function renderSceneCap(r) {
   if (box) {
     box.innerHTML = "";
     var totalFte = 0, totalMonthCap = 0;
-    SCENE_GROUPS.forEach(function (g) { totalFte += r.fte[g]; totalMonthCap += r.fte[g] * dpw * state.eff; });
+    SCENE_GROUPS.forEach(function (g) { totalFte += r.fte[g]; totalMonthCap += r.fte[g] * dpw * state.scene.eff; });
     var targetWD = workdayCount(0, Math.round(r.target * 7));
-    var util = (targetWD > 0 && totalFte > 0) ? r.totalMD / (totalFte * state.eff * targetWD) : 0;
+    var util = (targetWD > 0 && totalFte > 0) ? r.totalMD / (totalFte * state.scene.eff * targetWD) : 0;
     function kpi(label, val, unit, cls) {
       var d = document.createElement("div");
       d.className = "kpi" + (cls ? " " + cls : "");
@@ -6097,7 +6122,7 @@ function renderSceneCap(r) {
   SCENE_GROUPS.forEach(function (g) {
     var gD = 0;
     SCENE_STAGES.forEach(function (s) { if (SCENE_STAGE_GROUP[s] === g) gD += r.demand[s]; });
-    var monthCap = r.fte[g] * dpw * state.eff;
+    var monthCap = r.fte[g] * dpw * state.scene.eff;
     var occ = (monthCap * targetMonths) > 0 ? gD / (monthCap * targetMonths) : 0;
     var surplus = monthCap - (targetMonths > 0 ? gD / targetMonths : 0);
     var tr = document.createElement("tr");
@@ -6109,7 +6134,7 @@ function renderSceneCap(r) {
     td(g, "text-align:left;font-weight:600;");
     td(groupHeadcount(g));
     td(fmt(r.fte[g], 2));
-    td(fmt(r.fte[g] * 5 * state.eff, 1));
+    td(fmt(r.fte[g] * 5 * state.scene.eff, 1));
     td(fmt(monthCap, 1));
     td(fmt(occ * 100, 0) + "%",
       occ > 1.05 ? "color:#c0392b;font-weight:700;" : (occ > 0.9 ? "color:#b7791f;" : "color:#2f7d4f;"));
@@ -6170,7 +6195,7 @@ function sceneWeeklyLoad(r) {
   for (var w2 = 0; w2 < totalW; w2++) {
     var tot = 0;
     rows.forEach(function (row) {
-      if (wd[w2] > 0) tot += row.series[w2] / (wd[w2] * state.eff);
+      if (wd[w2] > 0) tot += row.series[w2] / (wd[w2] * state.scene.eff);
     });
     perWeek.push(tot);
   }
@@ -6185,7 +6210,7 @@ function sceneWeeklyLoad(r) {
 function renderSceneWeekly(r) {
   var wl = sceneWeeklyLoad(r);
   var totalCap = 0;
-  SCENE_GROUPS.forEach(function (g) { totalCap += r.fte[g] * state.eff * workdayCount(0, r.maxEndIdx); });
+  SCENE_GROUPS.forEach(function (g) { totalCap += r.fte[g] * state.scene.eff * workdayCount(0, r.maxEndIdx); });
   var idle = Math.max(0, totalCap - r.totalMD);
   var peak = 0, sumPeople = 0;
   wl.perWeek.forEach(function (v) { if (v > peak) peak = v; sumPeople += v; });
@@ -6774,10 +6799,10 @@ function renderSceneOptions(r) {
   var recruitWeeks = num(cost.recruitWeeks, 6);
   var recruitCost = num(cost.recruitCost, 8000);
   var vendorCap = num(cost.vendorCap, 200);
-  var weeksPerMonth = state.daysPerMonth / 5;
-  var internalPerMD = state.daysPerMonth > 0 ? monthCost / (state.daysPerMonth * state.eff) : 0;
+  var weeksPerMonth = state.scene.daysPerMonth / 5;
+  var internalPerMD = state.scene.daysPerMonth > 0 ? monthCost / (state.scene.daysPerMonth * state.scene.eff) : 0;
   var targetWD = workdayCount(0, Math.round(target * 7));
-  var fteNeed = targetWD > 0 ? gap / (targetWD * state.eff) : 0;
+  var fteNeed = targetWD > 0 ? gap / (targetWD * state.scene.eff) : 0;
 
   var addWeeks = target + (gap > 0.5 ? recruitWeeks + rampMonths * (1 - rampEff) * weeksPerMonth : 0);
   var months = addWeeks / weeksPerMonth;
@@ -7262,7 +7287,7 @@ function exportCSV() {
 
   var sr = computeScene();
   push(["【场景计划排期】"]);
-  push(["口径", "场景目标 " + sr.target + " 周 / 启动日共用 " + sr.startDateText]);
+  push(["口径", "每月工作日 " + state.scene.daysPerMonth + " / 有效系数 " + state.scene.eff + " / 目标周期 " + sr.target + " 周 / 启动日 " + sr.startDateText + " / 缓冲 " + state.scene.bufferWeeks + " 周"]);
   push(["场景总数", sr.totalScenes, "总需求人天", fmt(sr.totalMD, 0)]);
   push(["工序", "承担组", "包含工序", "启动周", "工期(周)", "开始日期", "结束日期", "场景数"]);
   sr.sched.forEach(function (b) {
@@ -7302,12 +7327,12 @@ function exportCSV() {
   push([]);
   push(["场景产能"]);
   push(["资源池", "人数", "有效FTE", "周产能", "月产能", "本批占用", "富余(人天/月)"]);
-  var srMonths = sr.target / (state.daysPerMonth / 5);
+  var srMonths = sr.target / (state.scene.daysPerMonth / 5);
   SCENE_GROUPS.forEach(function (g) {
     var gd = 0;
     SCENE_STAGES.forEach(function (s) { if (SCENE_STAGE_GROUP[s] === g) gd += sr.demand[s]; });
-    var mcS = sr.fte[g] * state.daysPerMonth * state.eff;
-    push([g, groupHeadcount(g), fmt(sr.fte[g], 2), fmt(sr.fte[g] * 5 * state.eff, 1), fmt(mcS, 1),
+    var mcS = sr.fte[g] * state.scene.daysPerMonth * state.scene.eff;
+    push([g, groupHeadcount(g), fmt(sr.fte[g], 2), fmt(sr.fte[g] * 5 * state.scene.eff, 1), fmt(mcS, 1),
       fmt((mcS * srMonths) > 0 ? gd / (mcS * srMonths) * 100 : 0, 0) + "%",
       (mcS - gd / srMonths >= 0 ? "+" : "") + fmt(mcS - gd / srMonths, 1)]);
   });
@@ -7322,7 +7347,7 @@ function exportCSV() {
     var line = [row.group];
     row.series.forEach(function (v, w) {
       var wd = sw.workdays[w];
-      var people = wd > 0 ? v / (wd * state.eff) : 0;
+      var people = wd > 0 ? v / (wd * state.scene.eff) : 0;
       line.push(people > 0.05 ? fmt(people, 0) : "");
     });
     line.push(row.activeWeeks);
@@ -7380,6 +7405,8 @@ function exportCSV() {
   push(["【UI 计划排期】"]);
   push(["UI 目标周期(周)", ur.target, "建议周期(周)", fmt(ur.projectWeeks, 1),
     "预计完工", ur.projectEndDate, "卡点池", ur.critical ? ur.critical.group : "—"]);
+  push(["UI 口径", "每月工作日 " + state.ui.daysPerMonth + " / 有效系数 " + state.ui.eff +
+    " / 启动日 " + (state.ui.startDate || state.startDate) + " / 缓冲 " + state.ui.bufferWeeks + " 周"]);
   push(["界面数", ur.totalScreens, "总需求人天", fmt(ur.totalMD, 0), "组件库", fmt(ur.kitMD, 0)]);
   push([]);
   push(["UI 标准工时"]);
@@ -7681,7 +7708,11 @@ function applyParams() {
   document.getElementById("riskSeed").value = state.seed;
   document.getElementById("mcCapacity").checked = !!state.mcCapacity;
   ensureSceneData();
+  document.getElementById("sceneDaysPerMonth").value = state.scene.daysPerMonth;
+  document.getElementById("sceneEff").value = state.scene.eff;
   document.getElementById("sceneTarget").value = state.scene.targetWeeks;
+  document.getElementById("sceneStartDate").value = state.scene.startDate || state.startDate;
+  document.getElementById("sceneBufferWeeks").value = state.scene.bufferWeeks;
   document.getElementById("sceneKitMD").value = state.scene.kitMD;
   document.getElementById("sceneRiskSeed").value = state.scene.seed;
   document.getElementById("sceneMcCapacity").checked = !!state.scene.mcCapacity;
@@ -7697,7 +7728,11 @@ function applyParams() {
   document.getElementById("sceneRecruitCost").value = scost.recruitCost;
   document.getElementById("sceneVendorCap").value = scost.vendorCap;
   ensureUIData();
+  document.getElementById("uiDaysPerMonth").value = state.ui.daysPerMonth;
+  document.getElementById("uiEff").value = state.ui.eff;
   document.getElementById("uiTargetWeeks").value = state.ui.targetWeeks;
+  document.getElementById("uiStartDate").value = state.ui.startDate || state.startDate;
+  document.getElementById("uiBufferWeeks").value = state.ui.bufferWeeks;
   document.getElementById("uiKitMD").value = state.ui.kitMD;
 }
 
@@ -7775,6 +7810,26 @@ function resetAll() {
     state.scene.targetWeeks = Math.max(1, num(this.value, 18));
     recalcScene(); save();
   });
+  document.getElementById("sceneDaysPerMonth").addEventListener("input", function () {
+    ensureSceneData();
+    state.scene.daysPerMonth = Math.max(1, num(this.value, 21.75));
+    recalcScene(); save();
+  });
+  document.getElementById("sceneEff").addEventListener("input", function () {
+    ensureSceneData();
+    state.scene.eff = Math.max(0.3, Math.min(1, num(this.value, 0.85)));
+    recalcScene(); save();
+  });
+  document.getElementById("sceneStartDate").addEventListener("change", function () {
+    ensureSceneData();
+    state.scene.startDate = this.value || state.startDate;
+    recalcScene(); save();
+  });
+  document.getElementById("sceneBufferWeeks").addEventListener("input", function () {
+    ensureSceneData();
+    state.scene.bufferWeeks = Math.max(0, Math.min(8, num(this.value, 1)));
+    recalcScene(); save();
+  });
 
   document.getElementById("sceneKitMD").addEventListener("input", function () {
     ensureSceneData();
@@ -7795,6 +7850,26 @@ function resetAll() {
     ensureUIData();
     state.ui.targetWeeks = Math.max(1, num(this.value, 14));
     recalcUI();
+  });
+  document.getElementById("uiDaysPerMonth").addEventListener("input", function () {
+    ensureUIData();
+    state.ui.daysPerMonth = Math.max(1, num(this.value, 21.75));
+    recalcUI(); save();
+  });
+  document.getElementById("uiEff").addEventListener("input", function () {
+    ensureUIData();
+    state.ui.eff = Math.max(0.3, Math.min(1, num(this.value, 0.85)));
+    recalcUI(); save();
+  });
+  document.getElementById("uiStartDate").addEventListener("change", function () {
+    ensureUIData();
+    state.ui.startDate = this.value || state.startDate;
+    recalcUI(); save();
+  });
+  document.getElementById("uiBufferWeeks").addEventListener("input", function () {
+    ensureUIData();
+    state.ui.bufferWeeks = Math.max(0, Math.min(8, num(this.value, 1)));
+    recalcUI(); save();
   });
   document.getElementById("uiKitMD").addEventListener("change", function () {
     ensureUIData();
