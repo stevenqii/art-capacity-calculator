@@ -157,6 +157,51 @@ metadata:
 
 结论要明确：**推荐哪个、为什么、代价是什么、什么情况下不成立**。
 
+## 从策划文档自动拆解
+
+可以，但不要“文档一扔就直接出最终日期”。正确流程是：
+
+```text
+策划文档 → 范围 JSON（含假设）→ 确认 → 排期
+```
+
+### 支持文档
+
+- Word `.docx`：用 `office-docx` 读取，或 python-docx
+- PDF：用 `office-export-pdf` / `office-render`，或 pdftotext
+- Excel `.xlsx`：用 `office-xlsx` 读取
+- Markdown / 纯文本：直接读
+- 飞书 / 在线文档：先导出为 docx / pdf / md
+
+### 执行步骤
+
+1. **读文档**：提取项目类型、系统、角色、场景、UI、节点、约束。
+2. **按 schema 填**：使用 `references/scope-schema.md` 的结构，生成 `scope.json`。
+3. **标假设**：文档没写的，用 `default` / `inferred` 标注，写进 `assumptions`，不要静默编数。
+4. **先确认**：把范围、复杂度、目标周期、人员、复用假设给用户确认；最多列 3～5 个关键假设。
+5. **跑排期**：
+   ```bash
+   node scripts/scope-to-plan.mjs scope.json --out plan.csv
+   ```
+6. **输出**：摘要表 + 逐任务 CSV + 风险 + 缺口方案。
+
+### 映射规则
+
+- 文档里的“系统 / 界面” → UI 界面清单；复杂系统拆成多个界面。
+- 文档里的“地图 / 关卡 / 区域” → 场景清单；按主城/野外/副本分 S/A/B。
+- 文档里的“角色 / Boss / 怪物 / NPC” → 角色档位；没有数量就按 S/A/B 估并标注。
+- 文档里的“动作 / 技能 / 特效” → 动作组数、特效个数。
+- 文档里的“模块库 / 组件库 / 共用资产” → 一次性投入，不摊进逐场景/逐界面随机。
+- 文档里的“上线 / 测试 / 版本节点” → 目标周期和批次 P0–P3。
+
+### 不能自动相信的部分
+
+- 策划文档通常不写美术标准工时、人员职级、复用率、外包价格。
+- 这些必须用默认值 + 显式假设，或向 PM 确认。
+- 自动拆解只能产出**可讨论的初版**，不能替代主美/PM 的范围确认。
+
+`references/scope-template.md` 是给策划/PM 填的输入模板；`examples/scope-example.json` 是完整示例。
+
 ## 工作流
 
 1. **识别管线与问题类型**
@@ -246,4 +291,8 @@ P50 / P80 / 按期概率 / 主要波动源
 - `references/methodology.md`：公式、默认工时、日历和排期算法。
 - `references/audit-checklist.md`：排期/工具审计清单。
 - `references/examples.md`：角色、场景、UI 三个示例。
+- `references/scope-schema.md`：策划文档 → 范围 JSON 的字段规则。
+- `references/scope-template.md`：给策划/PM 填的输入模板。
+- `examples/scope-example.json`：完整范围示例。
+- `scripts/scope-to-plan.mjs`：范围 JSON → 排期摘要 + 逐任务 CSV。
 - `assets/art-capacity-calculator.html`：交互版工具。
