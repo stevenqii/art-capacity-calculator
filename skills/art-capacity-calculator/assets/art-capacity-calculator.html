@@ -86,6 +86,7 @@
     <button class="tab" data-pane="scene">场景 · 计划排期</button>
     <button class="tab" data-pane="scene-people">场景 · 人力产能</button>
     <button class="tab" data-pane="ui">UI · 排期计划</button>
+    <button class="tab" data-pane="exec">执行 · 基线质量</button>
   </nav>
 
 
@@ -1073,6 +1074,87 @@
   </div>
 </section>
 
+<section class="pane" data-pane="exec">
+  <div class="card">
+    <h2><span class="num">1</span>基线 vs 实际 <span class="badge">执行偏差与预测</span></h2>
+    <div class="hint">先锁定基线，再按周填“累计实际人天”和“完成%”。挣值 = 基线人天 × 完成%；CPI = 挣值 / 实际。返工人天请直接计入实际人天。</div>
+    <div class="coefbar">
+      <button class="btn small" id="execCapture">锁定当前基线</button>
+      <button class="btn ghost small" id="execClearActual">清空执行数据</button>
+      <span class="sub" id="execBaselineInfo" style="align-self:center;"></span>
+    </div>
+    <div class="kpis" id="execKpis" style="margin:14px 0;"></div>
+    <div class="overflow">
+      <table id="execTable">
+        <thead>
+          <tr>
+            <th style="width:70px;text-align:left;">管线</th>
+            <th>基线人天</th>
+            <th>基线周</th>
+            <th>目标</th>
+            <th style="width:100px;">实际人天</th>
+            <th style="width:90px;">完成%</th>
+            <th>挣值</th>
+            <th>CPI</th>
+            <th>预测周</th>
+            <th>偏差</th>
+            <th style="width:90px;">状态</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="hint" style="margin-top:8px;">CPI &lt; 1 表示实际消耗高于挣值；偏差为正表示预测比基线更晚。</div>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">2</span>人员可用性 <span class="badge">请假 / 跨项目占用</span></h2>
+    <div class="hint">“其他项目%”只用于看冲突，不从本项目扣产能；请假周会按全年比例扣减本项目有效 FTE。改完自动重算角色 / 场景 / UI。</div>
+    <div class="overflow">
+      <table id="execPeopleTable">
+        <thead>
+          <tr>
+            <th style="width:150px;text-align:left;">姓名</th>
+            <th style="width:110px;">资源池</th>
+            <th style="width:80px;">职级</th>
+            <th style="width:76px;">投入%</th>
+            <th style="width:96px;">其他项目%</th>
+            <th style="width:90px;">请假(周)</th>
+            <th>本项目 FTE</th>
+            <th>可再用 FTE</th>
+            <th style="width:90px;">冲突</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">3</span>质量门禁 <span class="badge">评审 / 返工 / 放行</span></h2>
+    <div class="hint">门禁状态决定能不能进入下一道工序；“带风险通过”要写清楚风险。返工人天在这里汇总，执行页的实际人天请把它算进去。</div>
+    <div class="kpis" id="qualityKpis" style="margin:14px 0;"></div>
+    <div class="overflow">
+      <table id="qualityTable">
+        <thead>
+          <tr>
+            <th style="width:64px;text-align:left;">管线</th>
+            <th style="width:120px;text-align:left;">门禁</th>
+            <th style="width:104px;">状态</th>
+            <th style="width:70px;">轮次</th>
+            <th style="width:76px;">反馈数</th>
+            <th style="width:90px;">返工人天</th>
+            <th style="width:110px;text-align:left;">评审人</th>
+            <th style="width:110px;">日期</th>
+            <th style="text-align:left;">备注</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
   <div class="row-actions">
     <button class="btn" id="exportBtn">导出表格（Excel 可打开）</button>
     <button class="btn ghost" id="resetBtn">恢复默认</button>
@@ -1182,6 +1264,33 @@ var UI_STAGE_ROLE = {
   "动效": "UI动效", "整合": "UI整合", "适配": "UI整合", "验收": "UI整合"
 };
 var UI_BATCHES = [["P0", "P0 核心"], ["P1", "P1 主要"], ["P2", "P2 次要"], ["P3", "P3 长尾"]];
+
+/* ============ 执行跟踪 / 基线 / 质量门禁 ============ */
+var EXEC_PIPELINES = [
+  { key: "character", label: "角色" },
+  { key: "scene", label: "场景" },
+  { key: "ui", label: "UI" }
+];
+var EXEC_GATES = {
+  character: ["原画锁定", "模型验收", "绑定验收", "动作验收", "特效验收", "整合验收"],
+  scene: ["概念", "拆分", "白模", "模型", "材质", "地编", "灯光", "优化"],
+  ui: ["UX", "视觉", "组件库", "切图", "动效", "整合", "适配"]
+};
+var EXEC_STATUS = ["未开始", "评审中", "通过", "带风险通过", "驳回"];
+function defaultExec() {
+  var actual = {}, quality = {};
+  EXEC_PIPELINES.forEach(function (p) {
+    actual[p.key] = { actualMD: 0, progress: 0, note: "" };
+    quality[p.key] = {};
+    EXEC_GATES[p.key].forEach(function (g) {
+      quality[p.key][g] = {
+        status: "未开始", rounds: 0, feedback: 0, reworkMD: 0,
+        reviewer: "", date: "", note: ""
+      };
+    });
+  });
+  return { baseline: null, actual: actual, quality: quality };
+}
 var UI_STD = {
   "S": { "UX": 2, "视觉": 6, "切图": 1.5, "动效": 3, "整合": 4, "适配": 1.5, "验收": 1 },
   "A": { "UX": 1.5, "视觉": 3.5, "切图": 0.75, "动效": 1.5, "整合": 2.5, "适配": 1, "验收": 0.5 },
@@ -1337,6 +1446,25 @@ function ensureUIData() {
   });
 }
 
+function ensureExecData() {
+  if (!state.exec) state.exec = defaultExec();
+  var e = state.exec;
+  if (!e.actual) e.actual = {};
+  if (!e.quality) e.quality = {};
+  EXEC_PIPELINES.forEach(function (p) {
+    if (!e.actual[p.key]) e.actual[p.key] = { actualMD: 0, progress: 0, note: "" };
+    if (!e.quality[p.key]) e.quality[p.key] = {};
+    EXEC_GATES[p.key].forEach(function (g) {
+      if (!e.quality[p.key][g]) {
+        e.quality[p.key][g] = {
+          status: "未开始", rounds: 0, feedback: 0, reworkMD: 0,
+          reviewer: "", date: "", note: ""
+        };
+      }
+    });
+  });
+}
+
 function ensureSceneData() {
   if (!state.scene || !state.scene.std) { state.scene = defaultScene(); return; }
   var sc = state.scene;
@@ -1420,6 +1548,7 @@ var state = {
   seed: 20260101, mcCapacity: true,
   scene: null, sceneMigrated: false,
   ui: null, uiMigrated: false,
+  exec: null,
   sceneWBS: null,
   sceneScenarios: [], sceneOutPrice: 1000
 };
@@ -1759,14 +1888,14 @@ function renderRoster() {
 
   var total = charRoster.length;
   var fte = 0;
-  charRoster.forEach(function (p) { fte += num(p.load) / 100 * num(state.coef[p.level], 1); });
+  charRoster.forEach(function (p) { fte += personFte(p, state.coef); });
   document.getElementById("rosterSummary").textContent =
     "角色共 " + total + " 人 · 有效 FTE 合计 " + fmt(fte, 2) + "（场景 / UI 人员在各自页签）";
   save();
   renderSceneRoster();
 }
 function updatePersonFte(tr, p) {
-  var v = num(p.load) / 100 * num(state.coef[p.level], 1);
+  var v = personFte(p, state.coef);
   var cell = tr.querySelector(".fte-cell");
   if (cell) cell.textContent = fmt(v, 2);
 }
@@ -1854,12 +1983,17 @@ function presetHolidays() {
 }
 
 /* ============ 计算 ============ */
+function personFte(p, coefSet) {
+  var coef = coefSet || state.coef;
+  var leave = Math.min(52, Math.max(0, num(p.leaveWeeks, 0))) / 52;
+  return num(p.load) / 100 * num(coef[p.level], 1) * (1 - leave);
+}
 function groupFte(g, coefSet) {
   var coef = coefSet || state.coef;
   var f = 0;
   state.roster.forEach(function (p) {
     if (p.group !== g) return;
-    f += num(p.load) / 100 * num(coef[p.level], 1);
+    f += personFte(p, coef);
   });
   return f;
 }
@@ -2528,7 +2662,7 @@ function deleteScenario(id) {
 
 
 /* ============ 页签 ============ */
-var TAB_KEYS = ["task", "schedule", "people", "scene", "scene-wbs", "scene-people", "ui"];
+var TAB_KEYS = ["task", "schedule", "people", "scene", "scene-wbs", "scene-people", "ui", "exec"];
 function switchTab(name) {
   if (TAB_KEYS.indexOf(name) < 0) name = "task";
   var panes = document.querySelectorAll(".pane");
@@ -3570,7 +3704,7 @@ function renderSceneSched(r) {
 }
 
 function updateScenePersonFte(tr, p) {
-  var v = num(p.load) / 100 * num(state.scene.coef[p.level], 1);
+  var v = personFte(p, state.scene.coef);
   var cell = tr.querySelector(".fte-cell");
   if (cell) cell.textContent = fmt(v, 2);
 }
@@ -3648,7 +3782,7 @@ function renderSceneRoster() {
   var sum = document.getElementById("sceneRosterSummary");
   if (sum) {
     var fte = 0;
-    list.forEach(function (p) { fte += num(p.load) / 100 * num(state.scene.coef[p.level], 1); });
+    list.forEach(function (p) { fte += personFte(p, state.scene.coef); });
     sum.textContent = "场景三组共 " + list.length + " 人 · 有效 FTE " + fmt(fte, 2);
   }
 
@@ -3977,7 +4111,7 @@ function renderUITasks(r) {
 }
 
 function updateUIPersonFte(tr, p) {
-  var v = num(p.load) / 100 * num(state.ui.coef[p.level], 1);
+  var v = personFte(p, state.ui.coef);
   var cell = tr.querySelector(".fte-cell");
   if (cell) cell.textContent = fmt(v, 2);
 }
@@ -4045,7 +4179,7 @@ function renderUIRoster() {
   var sum = document.getElementById("uiRosterSummary");
   if (sum) {
     var fte = 0;
-    list.forEach(function (p) { fte += num(p.load) / 100 * num(state.ui.coef[p.level], 1); });
+    list.forEach(function (p) { fte += personFte(p, state.ui.coef); });
     sum.textContent = "UI 共 " + list.length + " 人 · 有效 FTE " + fmt(fte, 2);
   }
   var sel = document.getElementById("uiAddGroup");
@@ -4113,6 +4247,310 @@ function renderUICap(r) {
     });
     tb.appendChild(tr);
   });
+}
+
+/* ============ 执行 / 基线 / 质量 ============ */
+function execSnapshot() {
+  var c = compute();
+  var s = computeScene();
+  var u = computeUI();
+  return {
+    capturedAt: fmtDate(new Date()),
+    startDate: state.startDate,
+    character: { md: c.totalMD, weeks: c.projectWeeks, target: c.target, end: c.projectEndDate },
+    scene: { md: s.totalMD, weeks: s.projectWeeks, target: s.target, end: s.projectEndDate },
+    ui: { md: u.totalMD, weeks: u.projectWeeks, target: u.target, end: u.projectEndDate }
+  };
+}
+function execCapture() {
+  ensureExecData();
+  state.exec.baseline = execSnapshot();
+  renderExec(); save();
+}
+function execClear() {
+  if (!confirm("清空基线、实际完成度、人员可用性和质量门禁？")) return;
+  state.exec = defaultExec();
+  state.roster.forEach(function (p) { p.leaveWeeks = 0; p.otherLoad = 0; });
+  recalcAll();
+}
+function execPipelineMetrics(key) {
+  ensureExecData();
+  var b = state.exec.baseline && state.exec.baseline[key];
+  if (!b) return null;
+  var a = state.exec.actual[key];
+  var planned = Math.max(0, num(b.md, 0));
+  var actual = Math.max(0, num(a.actualMD, 0));
+  var progress = Math.max(0, Math.min(100, num(a.progress, 0)));
+  var earned = planned * progress / 100;
+  var cpi = actual > 0 ? earned / actual : null;
+  var remaining = Math.max(0, planned - earned);
+  var forecastMD = actual > 0 ? actual + remaining : planned;
+  var forecastWeeks = planned > 0 ? num(b.weeks, 0) * forecastMD / planned : 0;
+  var variance = forecastWeeks - num(b.weeks, 0);
+  var start = parseDate(b.startDate || state.startDate);
+  var elapsed = Math.max(0, (new Date().getTime() - start.getTime()) / 86400000 / 7);
+  var spi = (elapsed > 0 && num(b.weeks, 0) > 0) ? (progress / 100) / (elapsed / b.weeks) : null;
+  var status = "未开始";
+  if (progress >= 100) status = "已完成";
+  else if (actual === 0 && progress === 0) status = "未开始";
+  else if (variance > 1 || (spi !== null && spi < 0.8)) status = "严重滞后";
+  else if (variance > 0.3 || (spi !== null && spi < 0.95)) status = "偏慢";
+  else status = "正常";
+  return {
+    planned: planned, actual: actual, progress: progress, earned: earned, cpi: cpi,
+    remaining: remaining, forecastMD: forecastMD, forecastWeeks: forecastWeeks,
+    variance: variance, spi: spi, status: status
+  };
+}
+function execQualitySummary() {
+  ensureExecData();
+  var total = 0, pass = 0, rejected = 0, rework = 0, review = 0;
+  EXEC_PIPELINES.forEach(function (p) {
+    EXEC_GATES[p.key].forEach(function (g) {
+      var x = state.exec.quality[p.key][g];
+      total++;
+      if (x.status === "通过" || x.status === "带风险通过") pass++;
+      if (x.status === "驳回") rejected++;
+      if (x.status === "评审中") review++;
+      rework += num(x.reworkMD, 0);
+    });
+  });
+  return { total: total, pass: pass, rejected: rejected, review: review, rework: rework,
+    rate: total > 0 ? pass / total * 100 : 0 };
+}
+function renderExecKpis() {
+  var box = document.getElementById("execKpis");
+  if (!box) return;
+  box.innerHTML = "";
+  var base = state.exec && state.exec.baseline;
+  var totals = { md: 0, actual: 0, earned: 0 };
+  var behind = 0;
+  if (base) {
+    EXEC_PIPELINES.forEach(function (p) {
+      var m = execPipelineMetrics(p.key);
+      if (!m) return;
+      totals.md += m.planned;
+      totals.actual += m.actual;
+      totals.earned += m.earned;
+      if (m.variance > 0.3 || m.status === "偏慢" || m.status === "严重滞后") behind++;
+    });
+  }
+  var q = execQualitySummary();
+  function kpi(label, val, unit, cls) {
+    var d = document.createElement("div");
+    d.className = "kpi" + (cls ? " " + cls : "");
+    d.innerHTML = '<div class="label">' + label + '</div><div class="val">' + val +
+      (unit ? '<small>' + unit + '</small>' : '') + '</div>';
+    box.appendChild(d);
+  }
+  kpi("基线总人天", base ? fmt(totals.md, 0) : "—", "人天");
+  kpi("实际总人天", base ? fmt(totals.actual, 0) : "—", "人天");
+  kpi("挣值", base ? fmt(totals.earned, 0) : "—", "人天");
+  kpi("总 CPI", base && totals.actual > 0 ? fmt(totals.earned / totals.actual, 2) : "—", "");
+  kpi("滞后管线", base ? behind : "—", "条", behind > 0 ? "bad" : "ok");
+  kpi("质量通过率", fmt(q.rate, 0) + "%", "", q.rejected > 0 ? "bad" : "ok");
+  kpi("返工人天", fmt(q.rework, 0), "人天", q.rework > 0 ? "bad" : "");
+}
+function renderExecTable() {
+  ensureExecData();
+  var tb = document.querySelector("#execTable tbody");
+  if (!tb) return;
+  tb.innerHTML = "";
+  var base = state.exec.baseline;
+  var info = document.getElementById("execBaselineInfo");
+  if (info) info.textContent = base ? ("基线锁定于 " + base.capturedAt + " · 启动 " + base.startDate) : "尚未锁定基线：先锁一版，再填实际。";
+  EXEC_PIPELINES.forEach(function (p) {
+    var b = base && base[p.key];
+    var a = state.exec.actual[p.key];
+    var m = execPipelineMetrics(p.key);
+    var tr = document.createElement("tr");
+    function td(txt, style) {
+      var d = document.createElement("td"); d.textContent = txt;
+      if (style) d.style.cssText = style;
+      tr.appendChild(d); return d;
+    }
+    td(p.label, "text-align:left;font-weight:600;");
+    td(b ? fmt(b.md, 0) : "—");
+    td(b ? fmt(b.weeks, 1) : "—");
+    td(b ? b.target + " 周" : "—");
+
+    var tdA = document.createElement("td");
+    var inA = document.createElement("input");
+    inA.type = "number"; inA.min = "0"; inA.step = "1"; inA.className = "num";
+    inA.value = a.actualMD; inA.disabled = !base;
+    inA.addEventListener("change", function () {
+      a.actualMD = Math.max(0, num(this.value, 0));
+      renderExec(); save();
+    });
+    tdA.appendChild(inA); tr.appendChild(tdA);
+
+    var tdP = document.createElement("td");
+    var inP = document.createElement("input");
+    inP.type = "number"; inP.min = "0"; inP.max = "100"; inP.step = "1"; inP.className = "num";
+    inP.value = a.progress; inP.disabled = !base;
+    inP.addEventListener("change", function () {
+      a.progress = Math.max(0, Math.min(100, num(this.value, 0)));
+      renderExec(); save();
+    });
+    tdP.appendChild(inP); tr.appendChild(tdP);
+
+    td(m ? fmt(m.earned, 0) : "—");
+    td(m && m.cpi !== null ? fmt(m.cpi, 2) : "—");
+    td(m ? fmt(m.forecastWeeks, 1) + " 周" : "—");
+    var vd = td(m ? (m.variance >= 0 ? "+" : "") + fmt(m.variance, 1) + " 周" : "—");
+    if (m && m.variance > 0.3) vd.style.color = "#c0392b";
+    var sd = td(m ? m.status : "—");
+    if (m && (m.status === "偏慢" || m.status === "严重滞后")) sd.style.color = "#c0392b";
+    if (m && m.status === "正常") sd.style.color = "#2f7d4f";
+    tb.appendChild(tr);
+  });
+  renderExecKpis();
+}
+function renderExecPeople() {
+  ensureExecData();
+  var tb = document.querySelector("#execPeopleTable tbody");
+  if (!tb) return;
+  tb.innerHTML = "";
+  var order = {};
+  ALL_GROUPS.forEach(function (g, i) { order[g] = i; });
+  var list = state.roster.slice().sort(function (a, b) {
+    if (order[a.group] !== order[b.group]) return (order[a.group] || 0) - (order[b.group] || 0);
+    return String(a.name).localeCompare(String(b.name), "zh");
+  });
+  list.forEach(function (p) {
+    if (p.otherLoad === undefined) p.otherLoad = 0;
+    if (p.leaveWeeks === undefined) p.leaveWeeks = 0;
+    var coefSet = state.coef;
+    if (SCENE_GROUPS.indexOf(p.group) >= 0) coefSet = state.scene.coef;
+    else if (UI_GROUPS.indexOf(p.group) >= 0) coefSet = state.ui.coef;
+    var leave = Math.min(52, Math.max(0, num(p.leaveWeeks, 0))) / 52;
+    var fte = personFte(p, coefSet);
+    var free = Math.max(0, 100 - num(p.load, 100) - num(p.otherLoad, 0)) / 100 * num(coefSet[p.level], 1) * (1 - leave);
+    var conflict = num(p.load, 100) + num(p.otherLoad, 0) > 100;
+    var tr = document.createElement("tr");
+    function td(txt, style) {
+      var d = document.createElement("td"); d.textContent = txt;
+      if (style) d.style.cssText = style;
+      tr.appendChild(d); return d;
+    }
+    td(p.name, "text-align:left;");
+    td(p.group);
+    td(LEVEL_NAME[p.level] || p.level);
+    td(num(p.load, 100));
+    var tdO = document.createElement("td");
+    var inO = document.createElement("input");
+    inO.type = "number"; inO.min = "0"; inO.max = "100"; inO.step = "5"; inO.className = "num";
+    inO.value = p.otherLoad;
+    inO.addEventListener("change", function () {
+      p.otherLoad = Math.max(0, Math.min(100, num(this.value, 0)));
+      recalcAll();
+    });
+    tdO.appendChild(inO); tr.appendChild(tdO);
+    var tdL = document.createElement("td");
+    var inL = document.createElement("input");
+    inL.type = "number"; inL.min = "0"; inL.max = "52"; inL.step = "1"; inL.className = "num";
+    inL.value = p.leaveWeeks;
+    inL.addEventListener("change", function () {
+      p.leaveWeeks = Math.max(0, Math.min(52, num(this.value, 0)));
+      recalcAll();
+    });
+    tdL.appendChild(inL); tr.appendChild(tdL);
+    td(fmt(fte, 2), "font-weight:600;");
+    td(fmt(free, 2));
+    td(conflict ? "⚠ 超配" : "—", conflict ? "color:#c0392b;font-weight:600;" : "color:#9aa4b2;");
+    tb.appendChild(tr);
+  });
+}
+function renderExecQuality() {
+  ensureExecData();
+  var tb = document.querySelector("#qualityTable tbody");
+  if (!tb) return;
+  tb.innerHTML = "";
+  EXEC_PIPELINES.forEach(function (p) {
+    EXEC_GATES[p.key].forEach(function (g) {
+      var x = state.exec.quality[p.key][g];
+      var tr = document.createElement("tr");
+      function td(txt, style) {
+        var d = document.createElement("td"); d.textContent = txt;
+        if (style) d.style.cssText = style;
+        tr.appendChild(d); return d;
+      }
+      td(p.label, "text-align:left;");
+      td(g, "text-align:left;");
+      var tdS = document.createElement("td");
+      var sel = document.createElement("select");
+      EXEC_STATUS.forEach(function (s) {
+        var o = document.createElement("option"); o.value = s; o.textContent = s;
+        if (x.status === s) o.selected = true; sel.appendChild(o);
+      });
+      sel.addEventListener("change", function () { x.status = this.value; renderExecQuality(); save(); });
+      tdS.appendChild(sel); tr.appendChild(tdS);
+      function numInput(key, min, max, step) {
+        var td = document.createElement("td");
+        var inp = document.createElement("input");
+        inp.type = "number"; inp.min = String(min); inp.max = String(max); inp.step = String(step); inp.className = "num";
+        inp.value = x[key];
+        inp.addEventListener("change", function () {
+          x[key] = Math.max(min, Math.min(max, num(this.value, 0)));
+          renderExecKpis(); save();
+        });
+        td.appendChild(inp); tr.appendChild(td);
+      }
+      numInput("rounds", 0, 20, 1);
+      numInput("feedback", 0, 9999, 1);
+      numInput("reworkMD", 0, 99999, 0.5);
+      var tdR = document.createElement("td"); tdR.style.textAlign = "left";
+      var inR = document.createElement("input"); inR.value = x.reviewer || ""; inR.style.textAlign = "left"; inR.placeholder = "评审人";
+      inR.addEventListener("input", function () { x.reviewer = this.value; save(); });
+      tdR.appendChild(inR); tr.appendChild(tdR);
+      var tdD = document.createElement("td");
+      var inD = document.createElement("input"); inD.type = "date"; inD.value = x.date || "";
+      inD.addEventListener("change", function () { x.date = this.value; save(); });
+      tdD.appendChild(inD); tr.appendChild(tdD);
+      var tdN = document.createElement("td"); tdN.style.textAlign = "left";
+      var inN = document.createElement("input"); inN.value = x.note || ""; inN.style.textAlign = "left"; inN.placeholder = "风险 / 反馈";
+      inN.addEventListener("input", function () { x.note = this.value; save(); });
+      tdN.appendChild(inN); tr.appendChild(tdN);
+      if (x.status === "驳回") tr.style.background = "#fdecea";
+      if (x.status === "带风险通过") tr.style.background = "#fff8e1";
+      if (x.status === "通过") tr.style.background = "#f2f8f4";
+      tb.appendChild(tr);
+    });
+  });
+  var box = document.getElementById("qualityKpis");
+  if (box) {
+    box.innerHTML = "";
+    var q = execQualitySummary();
+    function kpi(label, val, unit, cls) {
+      var d = document.createElement("div");
+      d.className = "kpi" + (cls ? " " + cls : "");
+      d.innerHTML = '<div class="label">' + label + '</div><div class="val">' + val +
+        (unit ? '<small>' + unit + '</small>' : '') + '</div>';
+      box.appendChild(d);
+    }
+    kpi("门禁总数", q.total, "个");
+    kpi("通过 / 带风险", q.pass, "个", q.pass === q.total ? "ok" : "");
+    kpi("评审中", q.review, "个");
+    kpi("驳回", q.rejected, "个", q.rejected > 0 ? "bad" : "ok");
+    kpi("通过率", fmt(q.rate, 0) + "%", "");
+    kpi("返工人天", fmt(q.rework, 0), "人天", q.rework > 0 ? "bad" : "");
+  }
+}
+function renderExec() {
+  ensureExecData();
+  renderExecTable();
+  renderExecPeople();
+  renderExecQuality();
+}
+function recalcAll() {
+  renderRoster();
+  renderSceneRoster();
+  renderUIRoster();
+  recalc();
+  recalcScene();
+  recalcUI();
+  renderExec();
+  save();
 }
 
 function recalcUI(skipRoster) {
@@ -5240,7 +5678,7 @@ function exportCSV() {
     if (SCENE_GROUPS.indexOf(p.group) >= 0) coefSet = state.scene.coef || state.coef;
     else if (UI_GROUPS.indexOf(p.group) >= 0) coefSet = state.ui.coef || state.coef;
     push([p.name, p.group, LEVEL_NAME[p.level], p.load,
-      fmt(num(p.load) / 100 * num(coefSet[p.level], 1), 2), p.note || ""]);
+      fmt(personFte(p, coefSet), 2), p.note || ""]);
   });
   push([]);
 
@@ -5456,6 +5894,43 @@ function exportCSV() {
       t.screen ? t.screen.status : ""]);
   });
 
+  ensureExecData();
+  push([]);
+  push(["【执行基线 vs 实际】"]);
+  push(["管线", "基线人天", "基线周", "目标周", "实际人天", "完成%", "挣值", "CPI", "预测周", "偏差(周)", "状态"]);
+  EXEC_PIPELINES.forEach(function (p) {
+    var m = execPipelineMetrics(p.key);
+    var b = state.exec.baseline && state.exec.baseline[p.key];
+    if (!m || !b) { push([p.label, "未锁定基线"]); return; }
+    push([p.label, fmt(m.planned, 0), fmt(b.weeks, 1), b.target, fmt(m.actual, 0), fmt(m.progress, 0),
+      fmt(m.earned, 0), m.cpi !== null ? fmt(m.cpi, 2) : "—", fmt(m.forecastWeeks, 1),
+      fmt(m.variance, 1), m.status]);
+  });
+  push([]);
+  push(["【人员可用性】"]);
+  push(["姓名", "资源池", "职级", "投入%", "其他项目%", "请假(周)", "本项目FTE", "可再用FTE", "冲突"]);
+  state.roster.forEach(function (p) {
+    var coefSet = state.coef;
+    if (SCENE_GROUPS.indexOf(p.group) >= 0) coefSet = state.scene.coef;
+    else if (UI_GROUPS.indexOf(p.group) >= 0) coefSet = state.ui.coef;
+    var leave = Math.min(52, Math.max(0, num(p.leaveWeeks, 0))) / 52;
+    var fte = personFte(p, coefSet);
+    var free = Math.max(0, 100 - num(p.load, 100) - num(p.otherLoad, 0)) / 100 *
+      num(coefSet[p.level], 1) * (1 - leave);
+    push([p.name, p.group, LEVEL_NAME[p.level] || p.level, p.load, num(p.otherLoad, 0),
+      num(p.leaveWeeks, 0), fmt(fte, 2), fmt(free, 2),
+      num(p.load, 100) + num(p.otherLoad, 0) > 100 ? "超配" : ""]);
+  });
+  push([]);
+  push(["【质量门禁】"]);
+  push(["管线", "门禁", "状态", "轮次", "反馈数", "返工人天", "评审人", "日期", "备注"]);
+  EXEC_PIPELINES.forEach(function (p) {
+    EXEC_GATES[p.key].forEach(function (g) {
+      var x = state.exec.quality[p.key][g];
+      push([p.label, g, x.status, x.rounds, x.feedback, x.reworkMD, x.reviewer || "", x.date || "", x.note || ""]);
+    });
+  });
+
   var csv = "\uFEFF" + lines.join("\r\n");
   var blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   var url = URL.createObjectURL(blob);
@@ -5512,6 +5987,8 @@ function load() {
     if (state.uiMigrated === undefined) state.uiMigrated = false;
     state.ui = state.ui || defaultUI();
     ensureUIData();
+    if (!state.exec) state.exec = defaultExec();
+    ensureExecData();
     return true;
   } catch (e) { return false; }
 }
@@ -5539,6 +6016,7 @@ function defaults() {
   state.sceneWBS = null;
   state.sceneScenarios = []; state.sceneOutPrice = 1000;
   state.ui = defaultUI(); state.uiMigrated = false;
+  state.exec = defaultExec();
   BLOCKS.forEach(function (b) { state.lags[b.key] = b.defaultLag; });
 }
 
@@ -5619,7 +6097,7 @@ function resetAll() {
   renderStd(); renderEst(); renderTasks(); renderExtras(); renderRoster(); renderHolidays();
   renderSceneStd(); renderSceneTasks(); renderSceneReuse(); renderSceneRoster(); renderWBS(); renderSceneEst(); recalc();
   renderSceneRisk(window.__sceneLast || computeScene());
-  renderUIRoster(); recalcUI();
+  renderUIRoster(); recalcUI(); renderExec();
 }
 
 /* ============ 初始化 ============ */
@@ -5718,6 +6196,8 @@ function resetAll() {
   document.getElementById("uiTaskPick").addEventListener("change", function () {
     renderUITasks(window.__uiLast || computeUI());
   });
+  document.getElementById("execCapture").addEventListener("click", execCapture);
+  document.getElementById("execClearActual").addEventListener("click", execClear);
   document.getElementById("wbsAdd").addEventListener("click", wbsAddScene);
   document.getElementById("wbsRebuild").addEventListener("click", wbsRebuild);
   document.getElementById("wbsApplyCounts").addEventListener("click", wbsApplyCounts);
@@ -5797,6 +6277,7 @@ function resetAll() {
   renderSceneStd(); renderSceneTasks(); renderSceneReuse(); renderSceneRoster(); renderWBS(); renderSceneEst(); recalc();
   renderSceneRisk(window.__sceneLast || computeScene());
   recalcUI();
+  renderExec();
 
   var tabBtns = document.querySelectorAll("#tabNav .tab");
   for (var ti = 0; ti < tabBtns.length; ti++) {
