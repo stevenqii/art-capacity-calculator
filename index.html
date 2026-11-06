@@ -363,6 +363,8 @@
             <th style="width:88px;">状态</th>
             <th style="width:96px;">计划完成</th>
             <th style="width:130px;">实际完成</th>
+            <th style="width:90px;">实际人天</th>
+            <th style="width:76px;">返工</th>
             <th style="width:110px;text-align:left;">负责人</th>
             <th style="text-align:left;">备注</th>
           </tr>
@@ -640,6 +642,8 @@
             <th style="width:90px;">状态</th>
             <th style="width:100px;">计划完成</th>
             <th style="width:120px;">实际完成</th>
+            <th style="width:90px;">实际人天</th>
+            <th style="width:76px;">返工</th>
             <th style="width:90px;">性能</th>
             <th style="width:110px;text-align:left;">负责人</th>
           </tr>
@@ -951,6 +955,8 @@
             <th style="width:80px;">批次</th>
             <th style="width:76px;">复用%</th>
             <th style="width:86px;">状态</th>
+            <th style="width:90px;">实际人天</th>
+            <th style="width:76px;">返工</th>
             <th style="width:110px;text-align:left;">负责人</th>
             <th style="width:44px;"></th>
           </tr>
@@ -1175,6 +1181,59 @@
       </table>
     </div>
   </div>
+
+  <div class="card">
+    <h2><span class="num">5</span>项目组合 <span class="badge">跨项目资源平衡</span></h2>
+    <div class="hint">当前项目需求自动取角色 / 场景 / UI 三条管线；其他项目按资源池填总人天。容量按组合周期和现有人力估算，用于看抢人冲突，不替代逐项目排期。</div>
+    <div class="coefbar">
+      <label class="param">组合周期(周) <input id="portfolioHorizon" type="number" min="1" step="1" value="26"></label>
+      <button class="btn small" id="portfolioAdd">+ 添加项目</button>
+      <label class="param">编辑项目 <select id="portfolioPick"></select></label>
+      <span class="sub" id="portfolioNote" style="align-self:center;"></span>
+    </div>
+    <div class="kpis" id="portfolioKpis" style="margin:14px 0;"></div>
+    <div class="overflow" style="margin-bottom:14px;">
+      <table id="portfolioTable">
+        <thead>
+          <tr>
+            <th style="text-align:left;">项目</th>
+            <th style="width:90px;">优先级</th>
+            <th>需求人天</th>
+            <th style="width:60px;"></th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="overflow" style="margin-bottom:14px;">
+      <table id="portfolioDemandTable">
+        <thead>
+          <tr>
+            <th style="text-align:left;">资源池</th>
+            <th style="width:140px;">该项目需求(人天)</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="overflow">
+      <table id="portfolioCapTable">
+        <thead>
+          <tr>
+            <th style="text-align:left;">资源池</th>
+            <th>当前项目</th>
+            <th>其他项目</th>
+            <th>合计</th>
+            <th>组合周期产能</th>
+            <th>缺口</th>
+            <th>负载</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="hint" style="margin-top:8px;">缺口 = 当前项目 + 其他项目 - 组合周期产能；只反映资源池总量，不包含项目间排期优先级。</div>
+  </div>
 </section>
 
   <div class="row-actions">
@@ -1313,6 +1372,9 @@ function defaultExec() {
     });
   });
   return { baseline: null, actual: actual, quality: quality };
+}
+function defaultPortfolio() {
+  return { horizonWeeks: 26, projects: [] };
 }
 var UI_STD = {
   "S": { "UX": 2, "视觉": 6, "切图": 1.5, "动效": 3, "整合": 4, "适配": 1.5, "验收": 1 },
@@ -1466,6 +1528,8 @@ function ensureUIData() {
     if (!s.batch) s.batch = "P1";
     if (!s.status) s.status = "未开始";
     if (s.reuse === undefined) s.reuse = 0;
+    if (s.actualMD === undefined) s.actualMD = 0;
+    if (s.reworkMD === undefined) s.reworkMD = 0;
   });
 }
 
@@ -1498,6 +1562,17 @@ function ensureExecData() {
         };
       }
     });
+  });
+}
+
+function ensurePortfolio() {
+  if (!state.portfolio) state.portfolio = defaultPortfolio();
+  if (state.portfolio.horizonWeeks === undefined) state.portfolio.horizonWeeks = 26;
+  if (!Array.isArray(state.portfolio.projects)) state.portfolio.projects = [];
+  state.portfolio.projects.forEach(function (p, i) {
+    if (!p.name) p.name = "项目 " + (i + 2);
+    if (p.priority === undefined) p.priority = i + 2;
+    if (!p.demand) p.demand = {};
   });
 }
 
@@ -1585,6 +1660,7 @@ var state = {
   scene: null, sceneMigrated: false,
   ui: null, uiMigrated: false,
   exec: null,
+  portfolio: null,
   sceneWBS: null,
   sceneScenarios: [], sceneOutPrice: 1000
 };
@@ -2871,7 +2947,8 @@ function buildAssetList(r) {
     if (!exist[n.code]) {
       state.assets.push({
         code: n.code, name: n.tier + " 角色 " + n.seq, tier: n.tier,
-        stage: "原画", status: "未开始", owner: "", actual: "", note: ""
+        stage: "原画", status: "未开始", owner: "", actual: "", note: "",
+        actualMD: 0, reworkMD: 0
       });
     }
   });
@@ -2917,6 +2994,10 @@ function renderAssets(r) {
   kpi("已阻塞", blocked, "个", blocked > 0 ? "bad" : "ok");
   var pct = list.length > 0 ? done / list.length * 100 : 0;
   kpi("完成率", fmt(pct, 0) + "%", "");
+  var actualMD = 0, reworkMD = 0;
+  list.forEach(function (a) { actualMD += num(a.actualMD, 0); reworkMD += num(a.reworkMD, 0); });
+  kpi("实际人天", fmt(actualMD, 0), "人天");
+  kpi("返工人天", fmt(reworkMD, 0), "人天", reworkMD > 0 ? "bad" : "");
 
   var tb = document.querySelector("#assetTable tbody");
   tb.innerHTML = "";
@@ -2960,6 +3041,20 @@ function renderAssets(r) {
     inA.type = "date"; inA.value = a.actual || "";
     inA.addEventListener("change", function () { a.actual = this.value; save(); });
     tdA.appendChild(inA); tr.appendChild(tdA);
+
+    var tdM = document.createElement("td");
+    var inM = document.createElement("input");
+    inM.type = "number"; inM.min = "0"; inM.step = "1"; inM.className = "num";
+    inM.value = num(a.actualMD, 0);
+    inM.addEventListener("change", function () { a.actualMD = Math.max(0, num(this.value, 0)); save(); });
+    tdM.appendChild(inM); tr.appendChild(tdM);
+
+    var tdR = document.createElement("td");
+    var inR = document.createElement("input");
+    inR.type = "number"; inR.min = "0"; inR.step = "0.5"; inR.className = "num";
+    inR.value = num(a.reworkMD, 0);
+    inR.addEventListener("change", function () { a.reworkMD = Math.max(0, num(this.value, 0)); save(); });
+    tdR.appendChild(inR); tr.appendChild(tdR);
 
     var tdO = document.createElement("td"); tdO.style.textAlign = "left";
     var inO = document.createElement("input"); inO.value = a.owner; inO.style.textAlign = "left";
@@ -3998,6 +4093,20 @@ function renderUIScreens() {
     selS.addEventListener("change", function () { s.status = this.value; recalcUI(); });
     tdS.appendChild(selS); tr.appendChild(tdS);
 
+    var tdM = document.createElement("td");
+    var inM = document.createElement("input");
+    inM.type = "number"; inM.min = "0"; inM.step = "1"; inM.className = "num";
+    inM.value = num(s.actualMD, 0);
+    inM.addEventListener("change", function () { s.actualMD = Math.max(0, num(this.value, 0)); save(); });
+    tdM.appendChild(inM); tr.appendChild(tdM);
+
+    var tdR = document.createElement("td");
+    var inR = document.createElement("input");
+    inR.type = "number"; inR.min = "0"; inR.step = "0.5"; inR.className = "num";
+    inR.value = num(s.reworkMD, 0);
+    inR.addEventListener("change", function () { s.reworkMD = Math.max(0, num(this.value, 0)); save(); });
+    tdR.appendChild(inR); tr.appendChild(tdR);
+
     var tdO = document.createElement("td"); tdO.style.textAlign = "left";
     var inO = document.createElement("input"); inO.value = s.owner || ""; inO.style.textAlign = "left"; inO.placeholder = "负责人";
     inO.addEventListener("input", function () { s.owner = this.value; save(); });
@@ -4034,6 +4143,13 @@ function renderUIKpis(r) {
   kpi("总需求人天", fmt(r.totalMD, 0), "人天");
   kpi("组件库", fmt(r.kitMD, 0), "人天");
   kpi("复杂度分布", "S " + s + " / A " + a + " / B " + b, "");
+  var actualMD = 0, reworkMD = 0;
+  state.ui.screens.forEach(function (x) {
+    actualMD += num(x.actualMD, 0);
+    reworkMD += num(x.reworkMD, 0);
+  });
+  kpi("实际人天", fmt(actualMD, 0), "人天");
+  kpi("返工人天", fmt(reworkMD, 0), "人天");
 }
 
 function renderUISched(r) {
@@ -4678,7 +4794,196 @@ function renderExec() {
   renderExecStages();
   renderExecPeople();
   renderExecQuality();
+  renderPortfolio();
 }
+/* ============ 项目组合 ============ */
+function portfolioGroups() {
+  return ALL_GROUPS.filter(function (g) { return g !== "UI组"; });
+}
+function portfolioCoef(g) {
+  if (SCENE_GROUPS.indexOf(g) >= 0) return state.scene.coef;
+  if (UI_GROUPS.indexOf(g) >= 0) return state.ui.coef;
+  return state.coef;
+}
+function portfolioCurrentDemand() {
+  var groups = portfolioGroups();
+  var d = {};
+  groups.forEach(function (g) { d[g] = 0; });
+  var c = compute();
+  (c.rows || []).forEach(function (r) { if (d[r.group] !== undefined) d[r.group] += num(r.demand, 0); });
+  var s = computeScene();
+  (s.rows || []).forEach(function (r) { if (d[r.group] !== undefined) d[r.group] += num(r.demand, 0); });
+  var u = computeUI();
+  (u.tasks || []).forEach(function (t) { if (d[t.group] !== undefined) d[t.group] += num(t.effort, 0); });
+  return d;
+}
+function portfolioProjectTotal(p) {
+  var sum = 0;
+  Object.keys(p.demand || {}).forEach(function (g) { sum += num(p.demand[g], 0); });
+  return sum;
+}
+function portfolioCapacity() {
+  ensurePortfolio();
+  var groups = portfolioGroups();
+  var out = {};
+  buildCalendar(parseDate(state.startDate));
+  var days = workdayCount(0, Math.round(num(state.portfolio.horizonWeeks, 26) * 7));
+  groups.forEach(function (g) {
+    out[g] = groupFte(g, portfolioCoef(g)) * state.eff * days;
+  });
+  return out;
+}
+function portfolioAdd() {
+  ensurePortfolio();
+  var n = state.portfolio.projects.length + 2;
+  state.portfolio.projects.push({ name: "项目 " + n, priority: n, demand: {} });
+  state.portfolio.picked = state.portfolio.projects.length - 1;
+  renderPortfolio(); save();
+}
+function portfolioDelete(i) {
+  ensurePortfolio();
+  if (i < 0 || i >= state.portfolio.projects.length) return;
+  if (!confirm("删除这个项目及其需求？")) return;
+  state.portfolio.projects.splice(i, 1);
+  if (state.portfolio.picked >= state.portfolio.projects.length) state.portfolio.picked = Math.max(0, state.portfolio.projects.length - 1);
+  renderPortfolio(); save();
+}
+function renderPortfolio() {
+  ensurePortfolio();
+  var groups = portfolioGroups();
+  var current = portfolioCurrentDemand();
+  var cap = portfolioCapacity();
+  var horizon = document.getElementById("portfolioHorizon");
+  if (horizon) horizon.value = state.portfolio.horizonWeeks;
+
+  var totalCurrent = 0, totalOther = 0, totalCap = 0;
+  groups.forEach(function (g) { totalCurrent += current[g] || 0; totalCap += cap[g] || 0; });
+  var otherBy = {};
+  groups.forEach(function (g) { otherBy[g] = 0; });
+  state.portfolio.projects.forEach(function (p) {
+    groups.forEach(function (g) { otherBy[g] += num(p.demand && p.demand[g], 0); });
+    totalOther += portfolioProjectTotal(p);
+  });
+  var totalDemand = totalCurrent + totalOther;
+  var totalGap = Math.max(0, totalDemand - totalCap);
+  var conflicts = 0;
+  groups.forEach(function (g) { if ((current[g] || 0) + otherBy[g] > cap[g] + 0.01) conflicts++; });
+
+  var box = document.getElementById("portfolioKpis");
+  if (box) {
+    box.innerHTML = "";
+    function kpi(label, val, unit, cls) {
+      var d = document.createElement("div");
+      d.className = "kpi" + (cls ? " " + cls : "");
+      d.innerHTML = '<div class="label">' + label + '</div><div class="val">' + val +
+        (unit ? '<small>' + unit + '</small>' : '') + '</div>';
+      box.appendChild(d);
+    }
+    kpi("组合项目", state.portfolio.projects.length + 1, "个");
+    kpi("总需求", fmt(totalDemand, 0), "人天");
+    kpi("周期产能", fmt(totalCap, 0), "人天");
+    kpi("总缺口", fmt(totalGap, 0), "人天", totalGap > 0 ? "bad" : "ok");
+    kpi("超配资源池", conflicts, "个", conflicts > 0 ? "bad" : "ok");
+  }
+
+  var tb = document.querySelector("#portfolioTable tbody");
+  if (tb) {
+    tb.innerHTML = "";
+    var tr0 = document.createElement("tr");
+    function td0(txt, style) {
+      var d = document.createElement("td"); d.textContent = txt;
+      if (style) d.style.cssText = style;
+      tr0.appendChild(d);
+    }
+    td0("当前项目（自动）", "text-align:left;font-weight:600;");
+    td0("—");
+    td0(fmt(totalCurrent, 0));
+    td0(""); tb.appendChild(tr0);
+    state.portfolio.projects.forEach(function (p, i) {
+      var tr = document.createElement("tr");
+      function td(txt, style) {
+        var d = document.createElement("td"); d.textContent = txt;
+        if (style) d.style.cssText = style;
+        tr.appendChild(d); return d;
+      }
+      var tdN = document.createElement("td"); tdN.style.textAlign = "left";
+      var inN = document.createElement("input"); inN.value = p.name; inN.style.textAlign = "left";
+      inN.addEventListener("input", function () { p.name = this.value; save(); });
+      tdN.appendChild(inN); tr.appendChild(tdN);
+      var tdP = document.createElement("td");
+      var inP = document.createElement("input"); inP.type = "number"; inP.min = "1"; inP.step = "1"; inP.className = "num"; inP.value = p.priority;
+      inP.addEventListener("change", function () { p.priority = Math.max(1, Math.round(num(this.value, p.priority))); save(); });
+      tdP.appendChild(inP); tr.appendChild(tdP);
+      td(fmt(portfolioProjectTotal(p), 0));
+      var tdD = document.createElement("td");
+      var btn = document.createElement("button"); btn.className = "del"; btn.textContent = "×";
+      btn.addEventListener("click", function () { portfolioDelete(i); });
+      tdD.appendChild(btn); tr.appendChild(tdD);
+      tb.appendChild(tr);
+    });
+  }
+
+  var sel = document.getElementById("portfolioPick");
+  if (sel) {
+    sel.innerHTML = "";
+    state.portfolio.projects.forEach(function (p, i) {
+      var o = document.createElement("option"); o.value = String(i); o.textContent = p.name;
+      sel.appendChild(o);
+    });
+    var pick = Math.max(0, Math.min(state.portfolio.projects.length - 1, num(state.portfolio.picked, 0)));
+    if (state.portfolio.projects.length) sel.value = String(pick);
+    state.portfolio.picked = pick;
+  }
+  var dt = document.querySelector("#portfolioDemandTable tbody");
+  if (dt) {
+    dt.innerHTML = "";
+    var project = state.portfolio.projects[state.portfolio.picked];
+    if (!project) {
+      var trE = document.createElement("tr");
+      var tdE = document.createElement("td"); tdE.colSpan = 2; tdE.textContent = "还没有其他项目；点「+ 添加项目」后在这里填需求。";
+      tdE.style.color = "#9aa4b2"; trE.appendChild(tdE); dt.appendChild(trE);
+    } else {
+      groups.forEach(function (g) {
+        var tr = document.createElement("tr");
+        var tdG = document.createElement("td"); tdG.textContent = g; tdG.style.textAlign = "left"; tr.appendChild(tdG);
+        var tdV = document.createElement("td");
+        var inp = document.createElement("input"); inp.type = "number"; inp.min = "0"; inp.step = "10"; inp.className = "num";
+        inp.value = num(project.demand[g], 0);
+        inp.addEventListener("change", function () {
+          project.demand[g] = Math.max(0, num(this.value, 0));
+          renderPortfolio(); save();
+        });
+        tdV.appendChild(inp); tr.appendChild(tdV);
+        dt.appendChild(tr);
+      });
+    }
+  }
+
+  var ct = document.querySelector("#portfolioCapTable tbody");
+  if (ct) {
+    ct.innerHTML = "";
+    groups.forEach(function (g) {
+      var tr = document.createElement("tr");
+      var total = (current[g] || 0) + (otherBy[g] || 0);
+      var gap = total - (cap[g] || 0);
+      var load = cap[g] > 0 ? total / cap[g] * 100 : 0;
+      [g, fmt(current[g] || 0, 0), fmt(otherBy[g] || 0, 0), fmt(total, 0),
+        fmt(cap[g] || 0, 0), (gap > 0 ? "+" : "") + fmt(gap, 0), fmt(load, 0) + "%"].forEach(function (v, i) {
+        var td = document.createElement("td"); td.textContent = v;
+        if (i === 0) td.style.textAlign = "left";
+        if (gap > 0 && i === 5) td.style.color = "#c0392b";
+        tr.appendChild(td);
+      });
+      ct.appendChild(tr);
+    });
+  }
+  var note = document.getElementById("portfolioNote");
+  if (note) {
+    note.textContent = "当前项目需求按完整周期计入；组合周期 " + state.portfolio.horizonWeeks + " 周。";
+  }
+}
+
+
 function recalcAll() {
   renderRoster();
   renderSceneRoster();
@@ -5629,6 +5934,10 @@ function renderSceneAssets(r) {
     kpi("完成率", list.length > 0 ? fmt(done / list.length * 100, 0) + "%" : "—", "");
     kpi("性能达标", list.length > 0 ? fmt(pass / list.length * 100, 0) + "%" : "—", "",
       pass === list.length && list.length > 0 ? "ok" : "");
+    var actualMD = 0, reworkMD = 0;
+    list.forEach(function (s) { actualMD += num(s.actualMD, 0); reworkMD += num(s.reworkMD, 0); });
+    kpi("实际人天", fmt(actualMD, 0), "人天");
+    kpi("返工人天", fmt(reworkMD, 0), "人天", reworkMD > 0 ? "bad" : "");
   }
 
   var tb = document.querySelector("#sceneAssetTable tbody");
@@ -5669,6 +5978,20 @@ function renderSceneAssets(r) {
     var inA = document.createElement("input"); inA.type = "date"; inA.value = s.actual || "";
     inA.addEventListener("change", function () { s.actual = this.value; save(); });
     tdA.appendChild(inA); tr.appendChild(tdA);
+
+    var tdM = document.createElement("td");
+    var inM = document.createElement("input");
+    inM.type = "number"; inM.min = "0"; inM.step = "1"; inM.className = "num";
+    inM.value = num(s.actualMD, 0);
+    inM.addEventListener("change", function () { s.actualMD = Math.max(0, num(this.value, 0)); save(); });
+    tdM.appendChild(inM); tr.appendChild(tdM);
+
+    var tdR = document.createElement("td");
+    var inR = document.createElement("input");
+    inR.type = "number"; inR.min = "0"; inR.step = "0.5"; inR.className = "num";
+    inR.value = num(s.reworkMD, 0);
+    inR.addEventListener("change", function () { s.reworkMD = Math.max(0, num(this.value, 0)); save(); });
+    tdR.appendChild(inR); tr.appendChild(tdR);
 
     var tdPerf = document.createElement("td");
     var selP = document.createElement("select");
@@ -5989,9 +6312,10 @@ function exportCSV() {
   }
   scenePlanDates(sr);
   push(["【场景资产台账】"]);
-  push(["编号", "名称", "等级", "批次", "状态", "计划完成", "实际完成", "性能", "负责人"]);
+  push(["编号", "名称", "等级", "批次", "状态", "计划完成", "实际完成", "实际人天", "返工", "性能", "负责人"]);
   state.sceneWBS.scenes.forEach(function (s) {
-    push([s.code, s.name, s.tier, s.batch, s.status, s._planDate || "", s.actual || "", s.perf || "未测", s.owner || ""]);
+    push([s.code, s.name, s.tier, s.batch, s.status, s._planDate || "", s.actual || "",
+      fmt(s.actualMD, 1), fmt(s.reworkMD, 1), s.perf || "未测", s.owner || ""]);
   });
 
   push([]);
@@ -6010,9 +6334,10 @@ function exportCSV() {
   });
   push([]);
   push(["UI 界面清单"]);
-  push(["编号", "界面", "模块", "复杂度", "批次", "复用%", "状态", "负责人"]);
+  push(["编号", "界面", "模块", "复杂度", "批次", "复用%", "状态", "实际人天", "返工", "负责人"]);
   state.ui.screens.forEach(function (s) {
-    push([s.code, s.name, s.module, s.tier, s.batch, s.reuse, s.status, s.owner || ""]);
+    push([s.code, s.name, s.module, s.tier, s.batch, s.reuse, s.status,
+      fmt(s.actualMD, 1), fmt(s.reworkMD, 1), s.owner || ""]);
   });
   push([]);
   push(["UI 资源池排期"]);
@@ -6082,6 +6407,30 @@ function exportCSV() {
     });
   });
 
+  ensurePortfolio();
+  var pGroups = portfolioGroups();
+  var pCurrent = portfolioCurrentDemand();
+  var pCap = portfolioCapacity();
+  push([]);
+  push(["【项目组合】"]);
+  push(["组合周期(周)", state.portfolio.horizonWeeks]);
+  push(["项目", "优先级", "需求人天"]);
+  var pCurrentTotal = 0;
+  pGroups.forEach(function (g) { pCurrentTotal += pCurrent[g] || 0; });
+  push(["当前项目（自动）", "", fmt(pCurrentTotal, 0)]);
+  state.portfolio.projects.forEach(function (p) {
+    push([p.name, p.priority, fmt(portfolioProjectTotal(p), 0)]);
+  });
+  push([]);
+  push(["资源池", "当前项目", "其他项目", "合计", "组合周期产能", "缺口", "负载"]);
+  pGroups.forEach(function (g) {
+    var other = 0;
+    state.portfolio.projects.forEach(function (p) { other += num(p.demand && p.demand[g], 0); });
+    var total = (pCurrent[g] || 0) + other;
+    push([g, fmt(pCurrent[g] || 0, 0), fmt(other, 0), fmt(total, 0), fmt(pCap[g] || 0, 0),
+      fmt(total - (pCap[g] || 0), 0), (pCap[g] > 0 ? fmt(total / pCap[g] * 100, 0) : "0") + "%"]);
+  });
+
   var csv = "\uFEFF" + lines.join("\r\n");
   var blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   var url = URL.createObjectURL(blob);
@@ -6140,6 +6489,8 @@ function load() {
     ensureUIData();
     if (!state.exec) state.exec = defaultExec();
     ensureExecData();
+    if (!state.portfolio) state.portfolio = defaultPortfolio();
+    ensurePortfolio();
     return true;
   } catch (e) { return false; }
 }
@@ -6168,6 +6519,7 @@ function defaults() {
   state.sceneScenarios = []; state.sceneOutPrice = 1000;
   state.ui = defaultUI(); state.uiMigrated = false;
   state.exec = defaultExec();
+  state.portfolio = defaultPortfolio();
   BLOCKS.forEach(function (b) { state.lags[b.key] = b.defaultLag; });
 }
 
@@ -6349,6 +6701,17 @@ function resetAll() {
   });
   document.getElementById("execCapture").addEventListener("click", execCapture);
   document.getElementById("execClearActual").addEventListener("click", execClear);
+  document.getElementById("portfolioHorizon").addEventListener("change", function () {
+    ensurePortfolio();
+    state.portfolio.horizonWeeks = Math.max(1, num(this.value, 26));
+    renderPortfolio(); save();
+  });
+  document.getElementById("portfolioAdd").addEventListener("click", portfolioAdd);
+  document.getElementById("portfolioPick").addEventListener("change", function () {
+    ensurePortfolio();
+    state.portfolio.picked = Math.max(0, num(this.value, 0));
+    renderPortfolio(); save();
+  });
   document.getElementById("wbsAdd").addEventListener("click", wbsAddScene);
   document.getElementById("wbsRebuild").addEventListener("click", wbsRebuild);
   document.getElementById("wbsApplyCounts").addEventListener("click", wbsApplyCounts);
