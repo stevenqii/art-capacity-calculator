@@ -32,6 +32,12 @@ https://stevenqii.github.io/art-capacity-calculator/
 - 按界面逐条排期，组件库单独按一次性投入
 - UI 人员批量添加、名单导入、独立职级系数、团队产能
 
+### 执行 · 基线质量
+- 锁定基线，按周填实际人天 / 完成%
+- 挣值、CPI、预测工期、偏差、滞后管线
+- 人员可用性：其他项目占用、请假周、冲突提示
+- 21 个质量门禁：状态、轮次、反馈、返工人天、评审人
+
 ## 作为 DSH Skill 使用
 
 仓库里的 `skills/art-capacity-calculator/` 是 DeepSeek Harness 的 skill 版本：
@@ -117,6 +123,9 @@ cp -R skills/art-capacity-calculator ~/.dsh/skills/
 ### UI · 排期计划
 ![UI 排期](screenshots/ui.png)
 
+### 执行 · 基线质量
+![执行跟踪](screenshots/exec.png)
+
 ### 场景独立职级系数
 ![场景系数](screenshots/coef.png)
 
@@ -142,6 +151,7 @@ https://<your-github-username>.github.io/art-capacity-calculator/
 ├── README.md
 └── screenshots/
     ├── coef.png
+    ├── exec.png
     ├── people.png
     ├── scene.png
     └── ui.png
