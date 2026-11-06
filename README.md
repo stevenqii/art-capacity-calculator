@@ -6,6 +6,10 @@
 - 数据保存在浏览器 `localStorage`，可导出 CSV
 - 支持角色、场景、UI 三条管线
 
+## 在线访问
+
+https://stevenqii.github.io/art-capacity-calculator/
+
 ## 功能
 
 ### 角色 · 任务拆解 / 计划排期 / 人力产能
