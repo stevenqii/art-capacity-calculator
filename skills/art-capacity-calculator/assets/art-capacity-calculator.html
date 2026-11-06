@@ -1077,7 +1077,7 @@
 <section class="pane" data-pane="exec">
   <div class="card">
     <h2><span class="num">1</span>基线 vs 实际 <span class="badge">执行偏差与预测</span></h2>
-    <div class="hint">先锁定基线，再按周填“累计实际人天”和“完成%”。挣值 = 基线人天 × 完成%；CPI = 挣值 / 实际。返工人天请直接计入实际人天。</div>
+    <div class="hint">先锁定基线，再在下方「工序实际」填累计实际 / 完成%；上面的管线汇总自动按基线权重计算。返工人天请直接计入实际人天。</div>
     <div class="coefbar">
       <button class="btn small" id="execCapture">锁定当前基线</button>
       <button class="btn ghost small" id="execClearActual">清空执行数据</button>
@@ -1108,7 +1108,29 @@
   </div>
 
   <div class="card">
-    <h2><span class="num">2</span>人员可用性 <span class="badge">请假 / 跨项目占用</span></h2>
+    <h2><span class="num">2</span>工序实际 <span class="badge">按工序填报</span></h2>
+    <div class="hint">按工序填累计实际、完成%和返工；上面的管线汇总会自动按基线权重汇总。先锁定新基线才会出现工序明细。</div>
+    <div class="overflow">
+      <table id="execStageTable">
+        <thead>
+          <tr>
+            <th style="width:64px;text-align:left;">管线</th>
+            <th style="width:110px;text-align:left;">工序</th>
+            <th>基线人天</th>
+            <th style="width:100px;">实际人天</th>
+            <th style="width:90px;">完成%</th>
+            <th style="width:90px;">返工人天</th>
+            <th>挣值</th>
+            <th style="width:90px;">状态</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">3</span>人员可用性 <span class="badge">请假 / 跨项目占用</span></h2>
     <div class="hint">“其他项目%”只用于看冲突，不从本项目扣产能；请假周会按全年比例扣减本项目有效 FTE。改完自动重算角色 / 场景 / UI。</div>
     <div class="overflow">
       <table id="execPeopleTable">
@@ -1131,7 +1153,7 @@
   </div>
 
   <div class="card">
-    <h2><span class="num">3</span>质量门禁 <span class="badge">评审 / 返工 / 放行</span></h2>
+    <h2><span class="num">4</span>质量门禁 <span class="badge">评审 / 返工 / 放行</span></h2>
     <div class="hint">门禁状态决定能不能进入下一道工序；“带风险通过”要写清楚风险。返工人天在这里汇总，执行页的实际人天请把它算进去。</div>
     <div class="kpis" id="qualityKpis" style="margin:14px 0;"></div>
     <div class="overflow">
@@ -1277,10 +1299,11 @@ var EXEC_GATES = {
   ui: ["UX", "视觉", "组件库", "切图", "动效", "整合", "适配"]
 };
 var EXEC_STATUS = ["未开始", "评审中", "通过", "带风险通过", "驳回"];
+var EXEC_STAGE_DEFS = { character: STAGES, scene: SCENE_STAGES, ui: UI_STAGES };
 function defaultExec() {
   var actual = {}, quality = {};
   EXEC_PIPELINES.forEach(function (p) {
-    actual[p.key] = { actualMD: 0, progress: 0, note: "" };
+    actual[p.key] = { actualMD: 0, progress: 0, note: "", stages: {} };
     quality[p.key] = {};
     EXEC_GATES[p.key].forEach(function (g) {
       quality[p.key][g] = {
@@ -1452,7 +1475,20 @@ function ensureExecData() {
   if (!e.actual) e.actual = {};
   if (!e.quality) e.quality = {};
   EXEC_PIPELINES.forEach(function (p) {
-    if (!e.actual[p.key]) e.actual[p.key] = { actualMD: 0, progress: 0, note: "" };
+    if (!e.actual[p.key]) e.actual[p.key] = { actualMD: 0, progress: 0, note: "", stages: {} };
+    if (!e.actual[p.key].stages) e.actual[p.key].stages = {};
+    EXEC_STAGE_DEFS[p.key].forEach(function (st) {
+      if (!e.actual[p.key].stages[st]) {
+        e.actual[p.key].stages[st] = { actualMD: 0, progress: 0, reworkMD: 0 };
+      }
+    });
+    if (e.baseline && e.baseline[p.key] && e.baseline[p.key].stages) {
+      Object.keys(e.baseline[p.key].stages).forEach(function (st) {
+        if (!e.actual[p.key].stages[st]) {
+          e.actual[p.key].stages[st] = { actualMD: 0, progress: 0, reworkMD: 0 };
+        }
+      });
+    }
     if (!e.quality[p.key]) e.quality[p.key] = {};
     EXEC_GATES[p.key].forEach(function (g) {
       if (!e.quality[p.key][g]) {
@@ -4254,12 +4290,27 @@ function execSnapshot() {
   var c = compute();
   var s = computeScene();
   var u = computeUI();
+  function demandMap(d) {
+    var out = {};
+    Object.keys(d || {}).forEach(function (k) { out[k] = Math.max(0, num(d[k], 0)); });
+    return out;
+  }
+  var cStages = demandMap(c.demand);
+  var sStages = demandMap(s.demand);
+  if (num(s.kitMD, 0) > 0) sStages["模块库"] = num(s.kitMD, 0);
+  var uStages = {};
+  UI_STAGES.forEach(function (st) { uStages[st] = 0; });
+  (u.tasks || []).forEach(function (t) {
+    if (t.screenCode === "KIT") return;
+    uStages[t.stage] = (uStages[t.stage] || 0) + num(t.effort, 0);
+  });
+  if (num(u.kitMD, 0) > 0) uStages["组件库"] = num(u.kitMD, 0);
   return {
     capturedAt: fmtDate(new Date()),
     startDate: state.startDate,
-    character: { md: c.totalMD, weeks: c.projectWeeks, target: c.target, end: c.projectEndDate },
-    scene: { md: s.totalMD, weeks: s.projectWeeks, target: s.target, end: s.projectEndDate },
-    ui: { md: u.totalMD, weeks: u.projectWeeks, target: u.target, end: u.projectEndDate }
+    character: { md: c.totalMD, weeks: c.projectWeeks, target: c.target, end: c.projectEndDate, stages: cStages },
+    scene: { md: s.totalMD, weeks: s.projectWeeks, target: s.target, end: s.projectEndDate, stages: sStages },
+    ui: { md: u.totalMD, weeks: u.projectWeeks, target: u.target, end: u.projectEndDate, stages: uStages }
   };
 }
 function execCapture() {
@@ -4273,15 +4324,37 @@ function execClear() {
   state.roster.forEach(function (p) { p.leaveWeeks = 0; p.otherLoad = 0; });
   recalcAll();
 }
+function execStageRollup(key) {
+  ensureExecData();
+  var b = state.exec.baseline && state.exec.baseline[key];
+  if (!b || !b.stages) return null;
+  var a = state.exec.actual[key];
+  var actual = 0, earned = 0, planned = 0, weighted = 0, rework = 0;
+  Object.keys(b.stages).forEach(function (st) {
+    var base = Math.max(0, num(b.stages[st], 0));
+    var x = a.stages[st] || { actualMD: 0, progress: 0, reworkMD: 0 };
+    var p = Math.max(0, Math.min(100, num(x.progress, 0)));
+    actual += Math.max(0, num(x.actualMD, 0));
+    rework += Math.max(0, num(x.reworkMD, 0));
+    planned += base;
+    earned += base * p / 100;
+    weighted += base * p;
+  });
+  return {
+    planned: planned, actual: actual, earned: earned, rework: rework,
+    progress: planned > 0 ? weighted / planned : 0
+  };
+}
 function execPipelineMetrics(key) {
   ensureExecData();
   var b = state.exec.baseline && state.exec.baseline[key];
   if (!b) return null;
   var a = state.exec.actual[key];
+  var roll = execStageRollup(key);
   var planned = Math.max(0, num(b.md, 0));
-  var actual = Math.max(0, num(a.actualMD, 0));
-  var progress = Math.max(0, Math.min(100, num(a.progress, 0)));
-  var earned = planned * progress / 100;
+  var actual = roll ? roll.actual : Math.max(0, num(a.actualMD, 0));
+  var progress = roll ? roll.progress : Math.max(0, Math.min(100, num(a.progress, 0)));
+  var earned = roll ? roll.earned : planned * progress / 100;
   var cpi = actual > 0 ? earned / actual : null;
   var remaining = Math.max(0, planned - earned);
   var forecastMD = actual > 0 ? actual + remaining : planned;
@@ -4299,7 +4372,7 @@ function execPipelineMetrics(key) {
   return {
     planned: planned, actual: actual, progress: progress, earned: earned, cpi: cpi,
     remaining: remaining, forecastMD: forecastMD, forecastWeeks: forecastWeeks,
-    variance: variance, spi: spi, status: status
+    variance: variance, spi: spi, status: status, rework: roll ? roll.rework : 0
   };
 }
 function execQualitySummary() {
@@ -4374,25 +4447,31 @@ function renderExecTable() {
     td(b ? fmt(b.weeks, 1) : "—");
     td(b ? b.target + " 周" : "—");
 
-    var tdA = document.createElement("td");
-    var inA = document.createElement("input");
-    inA.type = "number"; inA.min = "0"; inA.step = "1"; inA.className = "num";
-    inA.value = a.actualMD; inA.disabled = !base;
-    inA.addEventListener("change", function () {
-      a.actualMD = Math.max(0, num(this.value, 0));
-      renderExec(); save();
-    });
-    tdA.appendChild(inA); tr.appendChild(tdA);
+    var hasStages = !!(b && b.stages);
+    if (hasStages) {
+      td(m ? fmt(m.actual, 0) : "—");
+      td(m ? fmt(m.progress, 0) : "—");
+    } else {
+      var tdA = document.createElement("td");
+      var inA = document.createElement("input");
+      inA.type = "number"; inA.min = "0"; inA.step = "1"; inA.className = "num";
+      inA.value = a.actualMD; inA.disabled = !base;
+      inA.addEventListener("change", function () {
+        a.actualMD = Math.max(0, num(this.value, 0));
+        renderExec(); save();
+      });
+      tdA.appendChild(inA); tr.appendChild(tdA);
 
-    var tdP = document.createElement("td");
-    var inP = document.createElement("input");
-    inP.type = "number"; inP.min = "0"; inP.max = "100"; inP.step = "1"; inP.className = "num";
-    inP.value = a.progress; inP.disabled = !base;
-    inP.addEventListener("change", function () {
-      a.progress = Math.max(0, Math.min(100, num(this.value, 0)));
-      renderExec(); save();
-    });
-    tdP.appendChild(inP); tr.appendChild(tdP);
+      var tdP = document.createElement("td");
+      var inP = document.createElement("input");
+      inP.type = "number"; inP.min = "0"; inP.max = "100"; inP.step = "1"; inP.className = "num";
+      inP.value = a.progress; inP.disabled = !base;
+      inP.addEventListener("change", function () {
+        a.progress = Math.max(0, Math.min(100, num(this.value, 0)));
+        renderExec(); save();
+      });
+      tdP.appendChild(inP); tr.appendChild(tdP);
+    }
 
     td(m ? fmt(m.earned, 0) : "—");
     td(m && m.cpi !== null ? fmt(m.cpi, 2) : "—");
@@ -4536,9 +4615,67 @@ function renderExecQuality() {
     kpi("返工人天", fmt(q.rework, 0), "人天", q.rework > 0 ? "bad" : "");
   }
 }
+function renderExecStages() {
+  ensureExecData();
+  var tb = document.querySelector("#execStageTable tbody");
+  if (!tb) return;
+  tb.innerHTML = "";
+  var base = state.exec.baseline;
+  if (!base || !EXEC_PIPELINES.some(function (p) { return base[p.key] && base[p.key].stages; })) {
+    var tr0 = document.createElement("tr");
+    var td0 = document.createElement("td");
+    td0.colSpan = 8; td0.textContent = "先锁定当前基线，才会生成工序实际明细";
+    td0.style.color = "#9aa4b2"; tr0.appendChild(td0); tb.appendChild(tr0);
+    return;
+  }
+  EXEC_PIPELINES.forEach(function (p) {
+    var b = base[p.key];
+    if (!b || !b.stages) return;
+    var a = state.exec.actual[p.key];
+    Object.keys(b.stages).forEach(function (st) {
+      if (!a.stages[st]) a.stages[st] = { actualMD: 0, progress: 0, reworkMD: 0 };
+      var x = a.stages[st];
+      var baseMD = num(b.stages[st], 0);
+      var progress = Math.max(0, Math.min(100, num(x.progress, 0)));
+      var tr = document.createElement("tr");
+      function td(txt, style) {
+        var d = document.createElement("td"); d.textContent = txt;
+        if (style) d.style.cssText = style;
+        tr.appendChild(d); return d;
+      }
+      td(p.label, "text-align:left;");
+      td(st, "text-align:left;font-weight:600;");
+      td(fmt(baseMD, 1));
+      function inputCell(key, min, max, step) {
+        var td = document.createElement("td");
+        var inp = document.createElement("input");
+        inp.type = "number"; inp.min = String(min); inp.max = String(max);
+        inp.step = String(step); inp.className = "num";
+        inp.value = x[key];
+        inp.addEventListener("change", function () {
+          x[key] = Math.max(min, Math.min(max, num(this.value, 0)));
+          var roll = execStageRollup(p.key);
+          if (roll) { a.actualMD = roll.actual; a.progress = roll.progress; }
+          renderExec(); save();
+        });
+        td.appendChild(inp); tr.appendChild(td);
+      }
+      inputCell("actualMD", 0, 999999, 0.5);
+      inputCell("progress", 0, 100, 1);
+      inputCell("reworkMD", 0, 999999, 0.5);
+      td(fmt(baseMD * progress / 100, 1));
+      var status = progress >= 100 ? "已完成" : (progress > 0 || num(x.actualMD, 0) > 0 ? "进行中" : "未开始");
+      var sd = td(status);
+      if (status === "已完成") sd.style.color = "#2f7d4f";
+      if (status === "进行中") sd.style.color = "#b7791f";
+      tb.appendChild(tr);
+    });
+  });
+}
 function renderExec() {
   ensureExecData();
   renderExecTable();
+  renderExecStages();
   renderExecPeople();
   renderExecQuality();
 }
@@ -5905,6 +6042,20 @@ function exportCSV() {
     push([p.label, fmt(m.planned, 0), fmt(b.weeks, 1), b.target, fmt(m.actual, 0), fmt(m.progress, 0),
       fmt(m.earned, 0), m.cpi !== null ? fmt(m.cpi, 2) : "—", fmt(m.forecastWeeks, 1),
       fmt(m.variance, 1), m.status]);
+  });
+  push([]);
+  push(["【工序实际】"]);
+  push(["管线", "工序", "基线人天", "实际人天", "完成%", "返工人天", "挣值"]);
+  EXEC_PIPELINES.forEach(function (p) {
+    var b = state.exec.baseline && state.exec.baseline[p.key];
+    if (!b || !b.stages) return;
+    Object.keys(b.stages).forEach(function (st) {
+      var x = state.exec.actual[p.key].stages[st] || { actualMD: 0, progress: 0, reworkMD: 0 };
+      var baseMD = num(b.stages[st], 0);
+      var prog = num(x.progress, 0);
+      push([p.label, st, fmt(baseMD, 1), fmt(x.actualMD, 1), fmt(prog, 0),
+        fmt(x.reworkMD, 1), fmt(baseMD * prog / 100, 1)]);
+    });
   });
   push([]);
   push(["【人员可用性】"]);
