@@ -43,6 +43,7 @@ https://stevenqii.github.io/art-capacity-calculator/
 
 ### 供应商 · 管理
 - 供应商台账：类型、状态、联系人、周产能、单价、交期、返工、准时、合同
+- 独立「供应商准入」页签：单家供应商建档、详情、准入审批
 - 供应商详情：等级、付款条件、币种、税率、NDA、分包、风险、分管线产能
 - 准入审批：资料审核 → 样品测试 → 商务审核 → 已准入，带检查项和审批记录
 - 供应商订单：项目 / 管线 / 范围 / 人天 / 单价 / 金额 / 验收
@@ -145,6 +146,9 @@ cp -R skills/art-capacity-calculator ~/.dsh/skills/
 ### 供应商 · 管理
 ![供应商管理](screenshots/vendor.png)
 
+### 供应商准入
+![供应商准入](screenshots/onboard.png)
+
 ### 供应商准入审批
 ![准入审批](screenshots/approval.png)
 
@@ -179,6 +183,7 @@ https://<your-github-username>.github.io/art-capacity-calculator/
     ├── exec.png
     ├── approval.png
     ├── allocation.png
+    ├── onboard.png
     ├── people.png
     ├── portfolio.png
     ├── scene.png
