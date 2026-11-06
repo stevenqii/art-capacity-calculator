@@ -43,10 +43,13 @@ https://stevenqii.github.io/art-capacity-calculator/
 
 ### 供应商 · 管理
 - 供应商台账：类型、状态、联系人、周产能、单价、交期、返工、准时、合同
+- 供应商详情：等级、付款条件、币种、税率、NDA、分包、风险、分管线产能
+- 准入审批：资料审核 → 样品测试 → 商务审核 → 已准入，带检查项和审批记录
 - 供应商订单：项目 / 管线 / 范围 / 人天 / 单价 / 金额 / 验收
-- 评分：质量 / 准时 / 返工 / 价格 / 配合
-- 产能负荷与超负荷提示
-- 承诺人天、承诺金额、平均评分
+- 订单 SOW：PO、负责人、交付物、里程碑、发票/付款、首检、驳回原因、变更
+- 订单拆分到场景 / 界面 / 角色资产，校验拆分合计
+- 评分：质量 / 准时 / 返工 / 价格 / 配合；产能负荷与 12 周热力图
+- 风险提醒：合同到期、超负荷、逾期、首检驳回、高风险
 
 ## 作为 DSH Skill 使用
 
@@ -142,6 +145,12 @@ cp -R skills/art-capacity-calculator ~/.dsh/skills/
 ### 供应商 · 管理
 ![供应商管理](screenshots/vendor.png)
 
+### 供应商准入审批
+![准入审批](screenshots/approval.png)
+
+### 订单拆分
+![订单拆分](screenshots/allocation.png)
+
 ### 场景独立职级系数
 ![场景系数](screenshots/coef.png)
 
@@ -168,6 +177,8 @@ https://<your-github-username>.github.io/art-capacity-calculator/
 └── screenshots/
     ├── coef.png
     ├── exec.png
+    ├── approval.png
+    ├── allocation.png
     ├── people.png
     ├── portfolio.png
     ├── scene.png
