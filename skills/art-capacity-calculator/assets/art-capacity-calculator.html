@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -1279,7 +1279,14 @@
   </div>
 
   <div class="card">
-    <h2><span class="num">3</span>供应商订单 <span class="badge">分配 / 金额 / 验收</span></h2>
+    <h2><span class="num">3</span>准入审批 <span class="badge">资料 / 样品 / 商务</span></h2>
+    <div class="hint">准入路径：草稿 → 资料审核 → 样品测试 → 商务审核 → 已准入；驳回后可重新提交。六项资料齐全才能最终准入。</div>
+    <div class="kpis" id="vendorApprovalKpis" style="margin:14px 0;"></div>
+    <div id="vendorApprovalBody"></div>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">4</span>供应商订单 <span class="badge">分配 / 金额 / 验收</span></h2>
     <div class="hint">按项目 / 管线把任务分给供应商；金额 = 人天 × 单价，验收%用于算已验收金额。</div>
     <div class="coefbar">
       <button class="btn small" id="vendorOrderAdd">+ 添加订单</button>
@@ -1314,7 +1321,7 @@
   </div>
 
   <div class="card">
-    <h2><span class="num">4</span>产能热力图 <span class="badge">未来 12 周</span></h2>
+    <h2><span class="num">5</span>产能热力图 <span class="badge">未来 12 周</span></h2>
     <div class="hint">按订单起止把人天均摊到周，和供应商分管线产能对比；红色 = 超负荷。</div>
     <div class="overflow">
       <table id="vendorHeatTable">
@@ -1325,7 +1332,7 @@
   </div>
 
   <div class="card">
-    <h2><span class="num">5</span>评分与产能 <span class="badge">谁更稳、谁更划算</span></h2>
+    <h2><span class="num">6</span>评分与产能 <span class="badge">谁更稳、谁更划算</span></h2>
     <div class="hint">综合分 = 质量 35% + 准时 25% + 返工 15% + 价格 15% + 配合 10%。负荷 = 订单人天 / (周产能 × 订单周数)。</div>
     <div class="kpis" id="vendorScoreKpis" style="margin:14px 0;"></div>
     <div class="overflow">
@@ -1351,7 +1358,7 @@
   </div>
 
   <div class="card">
-    <h2><span class="num">6</span>风险提醒 <span class="badge">合同 / 负荷 / 交付 / 质量</span></h2>
+    <h2><span class="num">7</span>风险提醒 <span class="badge">合同 / 负荷 / 交付 / 质量</span></h2>
     <div class="hint">自动检查合同到期、超负荷、逾期订单、首检驳回和高风险供应商。</div>
     <div id="vendorRiskList"></div>
   </div>
@@ -1500,6 +1507,11 @@ function defaultPortfolio() {
 var VENDOR_TYPES = ["综合", "原画", "模型", "绑定", "动作", "特效", "场景", "UI", "其他"];
 var VENDOR_STATUS = ["潜在", "合作中", "暂停", "淘汰"];
 var VENDOR_ORDER_STATUS = ["计划", "进行中", "已交付", "验收中", "已验收", "暂停"];
+var ONBOARD_STAGES = ["草稿", "资料审核", "样品测试", "商务审核", "已准入", "驳回"];
+var ONBOARD_CHECKS = [
+  ["license", "营业执照"], ["nda", "NDA / 保密"], ["portfolio", "作品集 / 案例"],
+  ["capacity", "产能证明"], ["quote", "报价单 / 税率"], ["security", "信息安全 / IP"]
+];
 function defaultVendors() {
   return [
     {
@@ -1773,6 +1785,12 @@ function ensureVendorData() {
     ["角色", "场景", "UI", "其他"].forEach(function (k) {
       if (v.capacityBy[k] === undefined) v.capacityBy[k] = 0;
     });
+    if (!v.onboarding) v.onboarding = v.status === "合作中" ? "已准入" : "草稿";
+    if (!v.reviewer) v.reviewer = "";
+    if (!v.onboardingNote) v.onboardingNote = "";
+    if (!v.checklist) v.checklist = {};
+    ONBOARD_CHECKS.forEach(function (x) { if (v.checklist[x[0]] === undefined) v.checklist[x[0]] = false; });
+    if (!Array.isArray(v.approvalLog)) v.approvalLog = [];
   });
   state.vendorOrders.forEach(function (o, i) {
     if (!o.id) o.id = "O" + String(i + 1).padStart(2, "0");
@@ -1792,6 +1810,7 @@ function ensureVendorData() {
     if (!o.firstPass) o.firstPass = "未检";
     if (o.rejectReason === undefined) o.rejectReason = "";
     if (o.changeLog === undefined) o.changeLog = "";
+    if (!Array.isArray(o.allocations)) o.allocations = [];
   });
   if (!state.vendorPicked || !state.vendors.some(function (v) { return v.id === state.vendorPicked; })) {
     state.vendorPicked = state.vendors[0] ? state.vendors[0].id : "";
@@ -5418,7 +5437,16 @@ function renderVendorOrderDetail() {
     '<div class="coefbar" style="margin-top:8px;">' +
       '<label class="param" style="flex:1;">驳回原因 <input id="odReject" style="width:100%;"></label>' +
       '<label class="param" style="flex:1;">变更记录 <input id="odChange" style="width:100%;"></label>' +
-    '</div>';
+    '</div>' +
+    '<div class="hint" style="margin-top:12px;">订单拆分到场景 / 界面 / 角色资产；拆分合计应与订单人天对齐。</div>' +
+    '<div class="coefbar">' +
+      '<button class="btn small" id="vendorAllocAdd">+ 拆分一行</button>' +
+      '<span class="sub" id="vendorAllocNote" style="align-self:center;"></span>' +
+    '</div>' +
+    '<div class="overflow"><table id="vendorAllocTable"><thead><tr>' +
+      '<th style="width:76px;">管线</th><th style="width:150px;text-align:left;">对象</th>' +
+      '<th style="width:90px;">工序</th><th style="width:76px;">人天</th><th style="width:76px;">验收%</th>' +
+      '<th style="text-align:left;">备注</th><th style="width:44px;"></th></tr></thead><tbody></tbody></table></div>';
   var ids = { odPo: "po", odOwner: "internalOwner", odVpm: "vendorPm", odInvStatus: "invoiceStatus",
     odInv: "invoiceAmount", odPaid: "paidAmount", odFirst: "firstPass", odDeliver: "deliverables",
     odMile: "milestones", odReject: "rejectReason", odChange: "changeLog" };
@@ -5434,7 +5462,113 @@ function renderVendorOrderDetail() {
   });
   var note = document.getElementById("vendorOrderDetailNote");
   if (note) note.textContent = "订单金额 ¥" + fmt(vendorOrderAmount(o), 0) + " · 已验收 " + fmt(o.acceptedPct, 0) + "%";
+  renderVendorAllocations(o);
 }
+function vendorAssetOptions(pipeline) {
+  if (pipeline === "场景") {
+    ensureWBS();
+    return state.sceneWBS.scenes.map(function (s) { return { code: s.code, name: s.name }; });
+  }
+  if (pipeline === "UI") {
+    ensureUIData();
+    return state.ui.screens.map(function (s) { return { code: s.code, name: s.name }; });
+  }
+  if (pipeline === "角色") {
+    var list = buildAssetList(compute());
+    return list.map(function (a) { return { code: a.code, name: a.name }; });
+  }
+  return [{ code: "OTHER", name: "其他" }];
+}
+function vendorStageOptions(pipeline) {
+  if (pipeline === "场景") return SCENE_STAGES;
+  if (pipeline === "UI") return UI_STAGES;
+  if (pipeline === "角色") return STAGES;
+  return ["其他"];
+}
+function renderVendorAllocations(o) {
+  var tb = document.querySelector("#vendorAllocTable tbody");
+  if (!tb) return;
+  tb.innerHTML = "";
+  if (!Array.isArray(o.allocations)) o.allocations = [];
+  o.allocations.forEach(function (a) {
+    var tr = document.createElement("tr");
+    var tdP = document.createElement("td");
+    var selP = document.createElement("select");
+    ["角色", "场景", "UI", "其他"].forEach(function (x) {
+      var opt = document.createElement("option"); opt.value = x; opt.textContent = x;
+      if (a.pipeline === x) opt.selected = true; selP.appendChild(opt);
+    });
+    selP.addEventListener("change", function () {
+      a.pipeline = this.value;
+      var opts = vendorAssetOptions(a.pipeline);
+      a.code = opts[0] ? opts[0].code : "OTHER";
+      a.stage = vendorStageOptions(a.pipeline)[0];
+      renderVendors(); save();
+    });
+    tdP.appendChild(selP); tr.appendChild(tdP);
+
+    var tdO = document.createElement("td"); tdO.style.textAlign = "left";
+    var selO = document.createElement("select");
+    vendorAssetOptions(a.pipeline).forEach(function (x) {
+      var opt = document.createElement("option"); opt.value = x.code; opt.textContent = x.code + " " + x.name;
+      if (a.code === x.code) opt.selected = true; selO.appendChild(opt);
+    });
+    selO.addEventListener("change", function () { a.code = this.value; save(); });
+    tdO.appendChild(selO); tr.appendChild(tdO);
+
+    var tdS = document.createElement("td");
+    var selS = document.createElement("select");
+    vendorStageOptions(a.pipeline).forEach(function (x) {
+      var opt = document.createElement("option"); opt.value = x; opt.textContent = x;
+      if (a.stage === x) opt.selected = true; selS.appendChild(opt);
+    });
+    selS.addEventListener("change", function () { a.stage = this.value; save(); });
+    tdS.appendChild(selS); tr.appendChild(tdS);
+    function numCell(key, min, max, step) {
+      var td = document.createElement("td");
+      var inp = document.createElement("input"); inp.type = "number"; inp.min = String(min); inp.max = String(max); inp.step = String(step); inp.className = "num";
+      inp.value = a[key];
+      inp.addEventListener("change", function () {
+        a[key] = Math.max(min, Math.min(max, num(this.value, 0)));
+        renderVendors(); save();
+      });
+      td.appendChild(inp); tr.appendChild(td);
+    }
+    numCell("md", 0, 999999, 1);
+    numCell("acceptedPct", 0, 100, 5);
+    var tdN = document.createElement("td"); tdN.style.textAlign = "left";
+    var inN = document.createElement("input"); inN.value = a.note || ""; inN.style.textAlign = "left";
+    inN.addEventListener("input", function () { a.note = this.value; save(); });
+    tdN.appendChild(inN); tr.appendChild(tdN);
+    var tdD = document.createElement("td");
+    var btn = document.createElement("button"); btn.className = "del"; btn.textContent = "×";
+    btn.addEventListener("click", function () {
+      var i = o.allocations.indexOf(a);
+      if (i >= 0) o.allocations.splice(i, 1);
+      renderVendors(); save();
+    });
+    tdD.appendChild(btn); tr.appendChild(tdD);
+    tb.appendChild(tr);
+  });
+  var total = o.allocations.reduce(function (sum, a) { return sum + num(a.md, 0); }, 0);
+  var note = document.getElementById("vendorAllocNote");
+  if (note) {
+    note.textContent = "已拆分 " + fmt(total, 1) + " / 订单 " + fmt(o.md, 1) + " 人天" +
+      (Math.abs(total - num(o.md, 0)) > 0.01 ? " ⚠ 不一致" : "");
+    note.style.color = Math.abs(total - num(o.md, 0)) > 0.01 ? "#c0392b" : "#2f7d4f";
+  }
+  var add = document.getElementById("vendorAllocAdd");
+  if (add) add.addEventListener("click", function () {
+    var opts = vendorAssetOptions("角色");
+    o.allocations.push({
+      pipeline: "角色", code: opts[0] ? opts[0].code : "OTHER",
+      stage: vendorStageOptions("角色")[0], md: 0, acceptedPct: 0, note: ""
+    });
+    renderVendors(); save();
+  });
+}
+
+
 function renderVendorHeat() {
   var head = document.getElementById("vendorHeatHead");
   var tb = document.querySelector("#vendorHeatTable tbody");
@@ -5526,6 +5660,124 @@ function renderVendorRisks() {
     box.appendChild(d);
   });
 }
+
+function vendorChecklistDone(v) {
+  var n = 0;
+  ONBOARD_CHECKS.forEach(function (x) { if (v.checklist && v.checklist[x[0]]) n++; });
+  return n;
+}
+function vendorApprovalLog(v, from, to, note) {
+  v.approvalLog.push({
+    date: fmtDate(new Date()),
+    from: from,
+    to: to,
+    reviewer: v.reviewer || "",
+    note: note || v.onboardingNote || ""
+  });
+}
+function vendorApproveNext(v) {
+  if (v.onboarding === "已准入") return;
+  if (v.onboarding === "草稿" || v.onboarding === "驳回") {
+    vendorApprovalLog(v, v.onboarding, "资料审核", "");
+    v.onboarding = "资料审核";
+  } else if (v.onboarding === "资料审核") {
+    vendorApprovalLog(v, "资料审核", "样品测试", "");
+    v.onboarding = "样品测试";
+  } else if (v.onboarding === "样品测试") {
+    vendorApprovalLog(v, "样品测试", "商务审核", "");
+    v.onboarding = "商务审核";
+  } else if (v.onboarding === "商务审核") {
+    if (vendorChecklistDone(v) < ONBOARD_CHECKS.length) {
+      alert("还有资料未齐，不能最终准入。");
+      return;
+    }
+    vendorApprovalLog(v, "商务审核", "已准入", "");
+    v.onboarding = "已准入";
+    v.status = "合作中";
+  }
+  v.onboardingNote = "";
+  renderVendors(); save();
+}
+function vendorApproveReject(v) {
+  if (v.onboarding === "已准入") return;
+  var reason = prompt("驳回原因：", v.onboardingNote || "");
+  if (reason === null) return;
+  vendorApprovalLog(v, v.onboarding, "驳回", reason);
+  v.onboarding = "驳回";
+  v.onboardingNote = reason;
+  v.status = "暂停";
+  renderVendors(); save();
+}
+function vendorApproveReset(v) {
+  if (!confirm("重置准入流程到草稿？")) return;
+  vendorApprovalLog(v, v.onboarding, "草稿", "重置");
+  v.onboarding = "草稿";
+  v.onboardingNote = "";
+  renderVendors(); save();
+}
+function renderVendorApproval() {
+  var body = document.getElementById("vendorApprovalBody");
+  if (!body) return;
+  var v = vendorById(state.vendorPicked) || state.vendors[0];
+  if (!v) { body.innerHTML = '<div class="hint">还没有供应商</div>'; return; }
+  var done = vendorChecklistDone(v);
+  var box = document.getElementById("vendorApprovalKpis");
+  if (box) {
+    box.innerHTML = "";
+    function kpi(label, val, unit, cls) {
+      var d = document.createElement("div");
+      d.className = "kpi" + (cls ? " " + cls : "");
+      d.innerHTML = '<div class="label">' + label + '</div><div class="val">' + val +
+        (unit ? '<small>' + unit + '</small>' : '') + '</div>';
+      box.appendChild(d);
+    }
+    kpi("当前状态", v.onboarding, "", v.onboarding === "已准入" ? "ok" : (v.onboarding === "驳回" ? "bad" : ""));
+    kpi("资料完成", done + " / " + ONBOARD_CHECKS.length, "项", done === ONBOARD_CHECKS.length ? "ok" : "bad");
+    kpi("审批记录", v.approvalLog.length, "条");
+  }
+  body.innerHTML =
+    '<div class="coefbar">' +
+      '<label class="param">评审人 <input id="vaReviewer" style="width:100px;"></label>' +
+      '<label class="param" style="flex:1;">备注 <input id="vaNote" style="width:100%;"></label>' +
+      '<button class="btn small" id="vaNext">' + (v.onboarding === "商务审核" ? "最终准入" : "进入下一阶段") + '</button>' +
+      '<button class="btn ghost small" id="vaReject">驳回</button>' +
+      '<button class="btn ghost small" id="vaReset">重置</button>' +
+    '</div>' +
+    '<div class="coefbar" style="margin-top:8px;">' +
+      ONBOARD_CHECKS.map(function (x) {
+        return '<label class="param"><input id="vaChk_' + x[0] + '" type="checkbox"> ' + x[1] + '</label>';
+      }).join("") +
+    '</div>' +
+    '<div class="overflow" style="margin-top:12px;"><table id="vendorApprovalLogTable"><thead><tr>' +
+      '<th style="width:104px;">日期</th><th style="width:100px;">从</th><th style="width:100px;">到</th>' +
+      '<th style="width:100px;">评审人</th><th style="text-align:left;">备注</th></tr></thead><tbody></tbody></table></div>';
+  document.getElementById("vaReviewer").value = v.reviewer || "";
+  document.getElementById("vaNote").value = v.onboardingNote || "";
+  document.getElementById("vaReviewer").addEventListener("input", function () { v.reviewer = this.value; save(); });
+  document.getElementById("vaNote").addEventListener("input", function () { v.onboardingNote = this.value; save(); });
+  ONBOARD_CHECKS.forEach(function (x) {
+    var el = document.getElementById("vaChk_" + x[0]);
+    el.checked = !!v.checklist[x[0]];
+    el.addEventListener("change", function () { v.checklist[x[0]] = this.checked; renderVendors(); save(); });
+  });
+  document.getElementById("vaNext").addEventListener("click", function () { vendorApproveNext(v); });
+  document.getElementById("vaReject").addEventListener("click", function () { vendorApproveReject(v); });
+  document.getElementById("vaReset").addEventListener("click", function () { vendorApproveReset(v); });
+  var tb = document.querySelector("#vendorApprovalLogTable tbody");
+  if (tb) {
+    tb.innerHTML = "";
+    (v.approvalLog || []).slice().reverse().forEach(function (x) {
+      var tr = document.createElement("tr");
+      [x.date, x.from, x.to, x.reviewer || "", x.note || ""].forEach(function (txt, i) {
+        var td = document.createElement("td"); td.textContent = txt;
+        if (i === 4) td.style.textAlign = "left";
+        tr.appendChild(td);
+      });
+      tb.appendChild(tr);
+    });
+  }
+}
+
 
 function renderVendors() {
   ensureVendorData();
@@ -5767,6 +6019,7 @@ function renderVendors() {
   renderVendorOrderDetail();
   renderVendorHeat();
   renderVendorRisks();
+  renderVendorApproval();
 }
 
 
@@ -7220,9 +7473,10 @@ function exportCSV() {
   ensureVendorData();
   push([]);
   push(["【供应商台账】"]);
-  push(["名称", "类型", "状态", "等级", "联系人", "内部负责人", "周产能", "单价", "交期(周)", "返工%", "准时%", "质量(1-5)", "配合(1-5)", "付款条件", "币种", "税率%", "NDA", "允许分包", "风险", "合同起", "合同止", "备注"]);
+  push(["名称", "类型", "状态", "准入状态", "资料完成", "等级", "联系人", "内部负责人", "周产能", "单价", "交期(周)", "返工%", "准时%", "质量(1-5)", "配合(1-5)", "付款条件", "币种", "税率%", "NDA", "允许分包", "风险", "合同起", "合同止", "备注"]);
   state.vendors.forEach(function (v) {
-    push([v.name, v.type, v.status, v.tier, v.contact || "", v.owner || "", v.capacity, v.price, v.leadWeeks,
+    push([v.name, v.type, v.status, v.onboarding, vendorChecklistDone(v) + "/" + ONBOARD_CHECKS.length,
+      v.tier, v.contact || "", v.owner || "", v.capacity, v.price, v.leadWeeks,
       v.reworkPct, v.onTimePct, v.quality, v.cooperation, v.paymentTerms, v.currency, v.taxRate,
       v.nda ? "是" : "否", v.subcontract ? "是" : "否", v.risk,
       v.contractStart || "", v.contractEnd || "", v.note || ""]);
@@ -7235,6 +7489,23 @@ function exportCSV() {
     push([v ? v.name : "", o.pipeline, o.scope || "", o.po || "", o.internalOwner || "", o.vendorPm || "",
       o.md, o.rate, vendorOrderAmount(o), o.start || "", o.end || "", o.status, o.acceptedPct,
       o.invoiceStatus, o.invoiceAmount, o.paidAmount, o.firstPass, o.rejectReason || "", o.note || ""]);
+  });
+  push([]);
+  push(["【订单拆分】"]);
+  push(["供应商", "订单", "管线", "对象", "工序", "人天", "验收%", "备注"]);
+  state.vendorOrders.forEach(function (o) {
+    var v = vendorById(o.vendorId);
+    (o.allocations || []).forEach(function (a) {
+      push([v ? v.name : "", o.scope || o.id, a.pipeline, a.code, a.stage, a.md, a.acceptedPct, a.note || ""]);
+    });
+  });
+  push([]);
+  push(["【准入审批记录】"]);
+  push(["供应商", "日期", "从", "到", "评审人", "备注"]);
+  state.vendors.forEach(function (v) {
+    (v.approvalLog || []).forEach(function (x) {
+      push([v.name, x.date, x.from, x.to, x.reviewer || "", x.note || ""]);
+    });
   });
   push([]);
   push(["【供应商评分】"]);
