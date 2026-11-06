@@ -41,6 +41,8 @@ skills/art-capacity-calculator/
 ├── SKILL.md
 ├── assets/art-capacity-calculator.html
 ├── examples/
+│   ├── plan-example.csv
+│   ├── planning-doc-example.md
 │   └── scope-example.json
 ├── scripts/
 │   └── scope-to-plan.mjs
