@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -1243,6 +1243,7 @@
     <div class="hint">管理外部供应商的产能、单价、交期、返工和准时率；订单在下方单独分配。</div>
     <div class="coefbar">
       <button class="btn small" id="vendorAdd">+ 添加供应商</button>
+      <label class="param">查看 <select id="vendorDetailPick"></select></label>
       <span class="sub" id="vendorNote" style="align-self:center;"></span>
     </div>
     <div class="kpis" id="vendorKpis" style="margin:14px 0;"></div>
@@ -1271,7 +1272,14 @@
   </div>
 
   <div class="card">
-    <h2><span class="num">2</span>供应商订单 <span class="badge">分配 / 金额 / 验收</span></h2>
+    <h2><span class="num">2</span>供应商详情 <span class="badge">准入 / 合同 / 产能</span></h2>
+    <div class="hint">顶部「查看」选择供应商；这里维护等级、合同、付款、风险和分管线产能。</div>
+    <div id="vendorDetailBody"></div>
+    <div class="kpis" id="vendorDetailKpis" style="margin:14px 0;"></div>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">3</span>供应商订单 <span class="badge">分配 / 金额 / 验收</span></h2>
     <div class="hint">按项目 / 管线把任务分给供应商；金额 = 人天 × 单价，验收%用于算已验收金额。</div>
     <div class="coefbar">
       <button class="btn small" id="vendorOrderAdd">+ 添加订单</button>
@@ -1298,10 +1306,26 @@
         <tbody></tbody>
       </table>
     </div>
+    <div class="coefbar" style="margin-top:12px;">
+      <label class="param">查看订单 <select id="vendorOrderPick"></select></label>
+      <span class="sub" id="vendorOrderDetailNote" style="align-self:center;"></span>
+    </div>
+    <div id="vendorOrderDetailBody"></div>
   </div>
 
   <div class="card">
-    <h2><span class="num">3</span>评分与产能 <span class="badge">谁更稳、谁更划算</span></h2>
+    <h2><span class="num">4</span>产能热力图 <span class="badge">未来 12 周</span></h2>
+    <div class="hint">按订单起止把人天均摊到周，和供应商分管线产能对比；红色 = 超负荷。</div>
+    <div class="overflow">
+      <table id="vendorHeatTable">
+        <thead><tr id="vendorHeatHead"></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">5</span>评分与产能 <span class="badge">谁更稳、谁更划算</span></h2>
     <div class="hint">综合分 = 质量 35% + 准时 25% + 返工 15% + 价格 15% + 配合 10%。负荷 = 订单人天 / (周产能 × 订单周数)。</div>
     <div class="kpis" id="vendorScoreKpis" style="margin:14px 0;"></div>
     <div class="overflow">
@@ -1324,6 +1348,12 @@
         <tbody></tbody>
       </table>
     </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">6</span>风险提醒 <span class="badge">合同 / 负荷 / 交付 / 质量</span></h2>
+    <div class="hint">自动检查合同到期、超负荷、逾期订单、首检驳回和高风险供应商。</div>
+    <div id="vendorRiskList"></div>
   </div>
 </section>
 
@@ -1475,17 +1505,26 @@ function defaultVendors() {
     {
       id: "V01", name: "星火模型", type: "模型", status: "合作中", contact: "张",
       capacity: 120, price: 900, leadWeeks: 2, reworkPct: 12, onTimePct: 88,
-      quality: 4, cooperation: 4, contractStart: "2026-01-01", contractEnd: "2026-12-31", note: "角色 / 场景模型"
+      quality: 4, cooperation: 4, contractStart: "2026-01-01", contractEnd: "2026-12-31", note: "角色 / 场景模型",
+      tier: "核心", owner: "美术PM", paymentTerms: "月结30", currency: "CNY", taxRate: 6,
+      nda: true, subcontract: false, risk: "低",
+      capacityBy: { "角色": 80, "场景": 40, "UI": 0, "其他": 0 }
     },
     {
       id: "V02", name: "远景场景", type: "场景", status: "合作中", contact: "李",
       capacity: 160, price: 1000, leadWeeks: 3, reworkPct: 18, onTimePct: 82,
-      quality: 3, cooperation: 4, contractStart: "2026-03-01", contractEnd: "2027-03-31", note: "地编 / 白模"
+      quality: 3, cooperation: 4, contractStart: "2026-03-01", contractEnd: "2027-03-31", note: "地编 / 白模",
+      tier: "普通", owner: "美术PM", paymentTerms: "月结45", currency: "CNY", taxRate: 6,
+      nda: true, subcontract: true, risk: "中",
+      capacityBy: { "角色": 0, "场景": 120, "UI": 0, "其他": 40 }
     },
     {
       id: "V03", name: "像素 UI", type: "UI", status: "潜在", contact: "王",
       capacity: 80, price: 850, leadWeeks: 1, reworkPct: 10, onTimePct: 90,
-      quality: 4, cooperation: 3, contractStart: "", contractEnd: "", note: "UI 视觉 / 切图"
+      quality: 4, cooperation: 3, contractStart: "", contractEnd: "", note: "UI 视觉 / 切图",
+      tier: "备选", owner: "美术PM", paymentTerms: "预付30/验收70", currency: "CNY", taxRate: 6,
+      nda: false, subcontract: false, risk: "低",
+      capacityBy: { "角色": 0, "场景": 0, "UI": 80, "其他": 0 }
     }
   ];
 }
@@ -1494,12 +1533,20 @@ function defaultVendorOrders() {
     {
       id: "O01", vendorId: "V01", pipeline: "角色", scope: "角色模型外包",
       md: 220, rate: 900, start: "2026-11-09", end: "2027-01-31",
-      status: "进行中", acceptedPct: 0, note: ""
+      status: "进行中", acceptedPct: 0, note: "",
+      po: "PO-2026-001", internalOwner: "美术PM", vendorPm: "张",
+      deliverables: "角色模型 20 个", milestones: "50% 中期 / 100% 终验",
+      invoiceStatus: "未开票", invoiceAmount: 0, paidAmount: 0,
+      firstPass: "未检", rejectReason: "", changeLog: ""
     },
     {
       id: "O02", vendorId: "V02", pipeline: "场景", scope: "场景地编外包",
       md: 180, rate: 1000, start: "2026-11-23", end: "2027-02-28",
-      status: "计划", acceptedPct: 0, note: ""
+      status: "计划", acceptedPct: 0, note: "",
+      po: "PO-2026-002", internalOwner: "美术PM", vendorPm: "李",
+      deliverables: "场景地编 4 个", milestones: "白模 / 资产替换 / 终验",
+      invoiceStatus: "未开票", invoiceAmount: 0, paidAmount: 0,
+      firstPass: "未检", rejectReason: "", changeLog: ""
     }
   ];
 }
@@ -1714,6 +1761,18 @@ function ensureVendorData() {
     ["capacity", "price", "leadWeeks", "reworkPct", "onTimePct", "quality", "cooperation"].forEach(function (k) {
       if (v[k] === undefined) v[k] = k === "quality" || k === "cooperation" ? 3 : 0;
     });
+    if (!v.tier) v.tier = "普通";
+    if (!v.owner) v.owner = "";
+    if (!v.paymentTerms) v.paymentTerms = "月结30";
+    if (!v.currency) v.currency = "CNY";
+    if (v.taxRate === undefined) v.taxRate = 6;
+    if (v.nda === undefined) v.nda = false;
+    if (v.subcontract === undefined) v.subcontract = false;
+    if (!v.risk) v.risk = "低";
+    if (!v.capacityBy) v.capacityBy = { "角色": 0, "场景": 0, "UI": 0, "其他": 0 };
+    ["角色", "场景", "UI", "其他"].forEach(function (k) {
+      if (v.capacityBy[k] === undefined) v.capacityBy[k] = 0;
+    });
   });
   state.vendorOrders.forEach(function (o, i) {
     if (!o.id) o.id = "O" + String(i + 1).padStart(2, "0");
@@ -1722,7 +1781,24 @@ function ensureVendorData() {
     if (o.rate === undefined) o.rate = 0;
     if (!o.status) o.status = "计划";
     if (o.acceptedPct === undefined) o.acceptedPct = 0;
+    if (!o.po) o.po = "";
+    if (!o.internalOwner) o.internalOwner = "";
+    if (!o.vendorPm) o.vendorPm = "";
+    if (!o.deliverables) o.deliverables = "";
+    if (!o.milestones) o.milestones = "";
+    if (!o.invoiceStatus) o.invoiceStatus = "未开票";
+    if (o.invoiceAmount === undefined) o.invoiceAmount = 0;
+    if (o.paidAmount === undefined) o.paidAmount = 0;
+    if (!o.firstPass) o.firstPass = "未检";
+    if (o.rejectReason === undefined) o.rejectReason = "";
+    if (o.changeLog === undefined) o.changeLog = "";
   });
+  if (!state.vendorPicked || !state.vendors.some(function (v) { return v.id === state.vendorPicked; })) {
+    state.vendorPicked = state.vendors[0] ? state.vendors[0].id : "";
+  }
+  if (!state.vendorOrderPicked || !state.vendorOrders.some(function (o) { return o.id === state.vendorOrderPicked; })) {
+    state.vendorOrderPicked = state.vendorOrders[0] ? state.vendorOrders[0].id : "";
+  }
 }
 
 function ensureSceneData() {
@@ -5175,7 +5251,10 @@ function vendorAdd() {
     id: "V" + String(n).padStart(2, "0"), name: "供应商 " + n,
     type: "综合", status: "潜在", contact: "", capacity: 100, price: 1000,
     leadWeeks: 2, reworkPct: 10, onTimePct: 90, quality: 3, cooperation: 3,
-    contractStart: "", contractEnd: "", note: ""
+    contractStart: "", contractEnd: "", note: "",
+    tier: "普通", owner: "", paymentTerms: "月结30", currency: "CNY", taxRate: 6,
+    nda: false, subcontract: false, risk: "低",
+    capacityBy: { "角色": 0, "场景": 0, "UI": 0, "其他": 100 }
   });
   renderVendors(); save();
 }
@@ -5195,10 +5274,259 @@ function vendorOrderAdd() {
     id: "O" + String(n).padStart(2, "0"),
     vendorId: v ? v.id : "", pipeline: "角色", scope: "新外包任务",
     md: 0, rate: v ? v.price : 0, start: "", end: "",
-    status: "计划", acceptedPct: 0, note: ""
+    status: "计划", acceptedPct: 0, note: "",
+    po: "", internalOwner: "", vendorPm: "", deliverables: "", milestones: "",
+    invoiceStatus: "未开票", invoiceAmount: 0, paidAmount: 0,
+    firstPass: "未检", rejectReason: "", changeLog: ""
   });
   renderVendors(); save();
 }
+function vendorFinance(vendorId) {
+  var committed = 0, invoiced = 0, paid = 0, pass = 0, reject = 0, orders = 0;
+  state.vendorOrders.forEach(function (o) {
+    if (o.vendorId !== vendorId) return;
+    orders++;
+    committed += vendorOrderAmount(o);
+    invoiced += Math.max(0, num(o.invoiceAmount, 0));
+    paid += Math.max(0, num(o.paidAmount, 0));
+    if (o.firstPass === "通过") pass++;
+    if (o.firstPass === "驳回") reject++;
+  });
+  return { committed: committed, invoiced: invoiced, paid: paid, outstanding: invoiced - paid,
+    pass: pass, reject: reject, orders: orders };
+}
+function vendorCapacityTotal(v) {
+  var sum = 0;
+  if (v.capacityBy) Object.keys(v.capacityBy).forEach(function (k) { sum += num(v.capacityBy[k], 0); });
+  return sum > 0 ? sum : num(v.capacity, 0);
+}
+function renderVendorDetail() {
+  var body = document.getElementById("vendorDetailBody");
+  var pick = document.getElementById("vendorDetailPick");
+  if (!body) return;
+  if (pick) {
+    pick.innerHTML = "";
+    state.vendors.forEach(function (v) {
+      var o = document.createElement("option"); o.value = v.id; o.textContent = v.name;
+      if (state.vendorPicked === v.id) o.selected = true; pick.appendChild(o);
+    });
+  }
+  var v = vendorById(state.vendorPicked) || state.vendors[0];
+  if (!v) { body.innerHTML = '<div class="hint">还没有供应商</div>'; return; }
+  body.innerHTML =
+    '<div class="coefbar">' +
+      '<label class="param">等级 <select id="vdTier"><option>战略</option><option>核心</option><option>普通</option><option>备选</option></select></label>' +
+      '<label class="param">内部负责人 <input id="vdOwner" style="width:110px;" placeholder="负责人"></label>' +
+      '<label class="param">付款条件 <input id="vdPay" style="width:120px;"></label>' +
+      '<label class="param">币种 <input id="vdCurrency" style="width:64px;"></label>' +
+      '<label class="param">税率% <input id="vdTax" type="number" min="0" step="1" style="width:64px;"></label>' +
+      '<label class="param">风险 <select id="vdRisk"><option>低</option><option>中</option><option>高</option></select></label>' +
+      '<label class="param">NDA <input id="vdNda" type="checkbox"></label>' +
+      '<label class="param">允许分包 <input id="vdSub" type="checkbox"></label>' +
+    '</div>' +
+    '<div class="coefbar" style="margin-top:8px;">' +
+      '<label class="param">角色产能 <input id="vdCapRole" type="number" min="0" step="10" style="width:70px;"></label>' +
+      '<label class="param">场景产能 <input id="vdCapScene" type="number" min="0" step="10" style="width:70px;"></label>' +
+      '<label class="param">UI 产能 <input id="vdCapUI" type="number" min="0" step="10" style="width:70px;"></label>' +
+      '<label class="param">其他产能 <input id="vdCapOther" type="number" min="0" step="10" style="width:70px;"></label>' +
+    '</div>';
+  document.getElementById("vdTier").value = v.tier;
+  document.getElementById("vdOwner").value = v.owner || "";
+  document.getElementById("vdPay").value = v.paymentTerms || "";
+  document.getElementById("vdCurrency").value = v.currency || "CNY";
+  document.getElementById("vdTax").value = v.taxRate;
+  document.getElementById("vdRisk").value = v.risk;
+  document.getElementById("vdNda").checked = !!v.nda;
+  document.getElementById("vdSub").checked = !!v.subcontract;
+  document.getElementById("vdCapRole").value = num(v.capacityBy["角色"], 0);
+  document.getElementById("vdCapScene").value = num(v.capacityBy["场景"], 0);
+  document.getElementById("vdCapUI").value = num(v.capacityBy["UI"], 0);
+  document.getElementById("vdCapOther").value = num(v.capacityBy["其他"], 0);
+
+  function bind(id, fn) {
+    var el = document.getElementById(id);
+    if (el) el.addEventListener("change", function () { fn(el); renderVendors(); save(); });
+  }
+  bind("vdTier", function (el) { v.tier = el.value; });
+  bind("vdOwner", function (el) { v.owner = el.value; });
+  bind("vdPay", function (el) { v.paymentTerms = el.value; });
+  bind("vdCurrency", function (el) { v.currency = el.value; });
+  bind("vdTax", function (el) { v.taxRate = Math.max(0, num(el.value, 0)); });
+  bind("vdRisk", function (el) { v.risk = el.value; });
+  bind("vdNda", function (el) { v.nda = el.checked; });
+  bind("vdSub", function (el) { v.subcontract = el.checked; });
+  bind("vdCapRole", function (el) { v.capacityBy["角色"] = Math.max(0, num(el.value, 0)); v.capacity = vendorCapacityTotal(v); });
+  bind("vdCapScene", function (el) { v.capacityBy["场景"] = Math.max(0, num(el.value, 0)); v.capacity = vendorCapacityTotal(v); });
+  bind("vdCapUI", function (el) { v.capacityBy["UI"] = Math.max(0, num(el.value, 0)); v.capacity = vendorCapacityTotal(v); });
+  bind("vdCapOther", function (el) { v.capacityBy["其他"] = Math.max(0, num(el.value, 0)); v.capacity = vendorCapacityTotal(v); });
+
+  var fin = vendorFinance(v.id);
+  var sum = vendorOrderSummary(v.id);
+  var maxPrice = 0;
+  state.vendors.forEach(function (x) { maxPrice = Math.max(maxPrice, num(x.price, 0)); });
+  var score = vendorScore(v, maxPrice);
+  var cap = vendorCapacityTotal(v) * Math.max(1, sum.weeks);
+  var load = cap > 0 ? sum.md / cap * 100 : 0;
+  var box = document.getElementById("vendorDetailKpis");
+  if (box) {
+    box.innerHTML = "";
+    function kpi(label, val, unit, cls) {
+      var d = document.createElement("div");
+      d.className = "kpi" + (cls ? " " + cls : "");
+      d.innerHTML = '<div class="label">' + label + '</div><div class="val">' + val +
+        (unit ? '<small>' + unit + '</small>' : '') + '</div>';
+      box.appendChild(d);
+    }
+    kpi("综合分", fmt(score.total, 0), "分");
+    kpi("负荷", fmt(load, 0) + "%", "", load > 100 ? "bad" : "");
+    kpi("承诺", "¥" + fmt(fin.committed, 0), "");
+    kpi("已开票", "¥" + fmt(fin.invoiced, 0), "");
+    kpi("已付款", "¥" + fmt(fin.paid, 0), "");
+    kpi("未付", "¥" + fmt(Math.max(0, fin.outstanding), 0), fin.outstanding > 0 ? "bad" : "");
+    kpi("首检通过", (fin.pass + fin.reject) > 0 ? fmt(fin.pass / (fin.pass + fin.reject) * 100, 0) + "%" : "—", "");
+  }
+}
+function renderVendorOrderDetail() {
+  var body = document.getElementById("vendorOrderDetailBody");
+  var pick = document.getElementById("vendorOrderPick");
+  if (!body) return;
+  if (pick) {
+    pick.innerHTML = "";
+    state.vendorOrders.forEach(function (o) {
+      var v = vendorById(o.vendorId);
+      var opt = document.createElement("option"); opt.value = o.id;
+      opt.textContent = (v ? v.name : "—") + " · " + (o.scope || o.id);
+      if (state.vendorOrderPicked === o.id) opt.selected = true; pick.appendChild(opt);
+    });
+  }
+  var o = state.vendorOrders.filter(function (x) { return x.id === state.vendorOrderPicked; })[0];
+  if (!o) { body.innerHTML = '<div class="hint">还没有订单</div>'; return; }
+  body.innerHTML =
+    '<div class="coefbar">' +
+      '<label class="param">PO / SOW <input id="odPo" style="width:120px;"></label>' +
+      '<label class="param">内部负责人 <input id="odOwner" style="width:100px;"></label>' +
+      '<label class="param">供应商 PM <input id="odVpm" style="width:100px;"></label>' +
+      '<label class="param">发票状态 <select id="odInvStatus"><option>未开票</option><option>部分开票</option><option>已开票</option><option>已付款</option></select></label>' +
+      '<label class="param">发票金额 <input id="odInv" type="number" min="0" step="100" style="width:100px;"></label>' +
+      '<label class="param">已付款 <input id="odPaid" type="number" min="0" step="100" style="width:100px;"></label>' +
+      '<label class="param">首检 <select id="odFirst"><option>未检</option><option>通过</option><option>驳回</option></select></label>' +
+    '</div>' +
+    '<div class="coefbar" style="margin-top:8px;">' +
+      '<label class="param" style="flex:1;">交付物 <input id="odDeliver" style="width:100%;" placeholder="交付物清单"></label>' +
+      '<label class="param" style="flex:1;">里程碑 <input id="odMile" style="width:100%;" placeholder="里程碑 / 付款节点"></label>' +
+    '</div>' +
+    '<div class="coefbar" style="margin-top:8px;">' +
+      '<label class="param" style="flex:1;">驳回原因 <input id="odReject" style="width:100%;"></label>' +
+      '<label class="param" style="flex:1;">变更记录 <input id="odChange" style="width:100%;"></label>' +
+    '</div>';
+  var ids = { odPo: "po", odOwner: "internalOwner", odVpm: "vendorPm", odInvStatus: "invoiceStatus",
+    odInv: "invoiceAmount", odPaid: "paidAmount", odFirst: "firstPass", odDeliver: "deliverables",
+    odMile: "milestones", odReject: "rejectReason", odChange: "changeLog" };
+  Object.keys(ids).forEach(function (id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.value = o[ids[id]] === undefined ? "" : o[ids[id]];
+    el.addEventListener("change", function () {
+      if (id === "odInv" || id === "odPaid") o[ids[id]] = Math.max(0, num(el.value, 0));
+      else o[ids[id]] = el.value;
+      renderVendors(); save();
+    });
+  });
+  var note = document.getElementById("vendorOrderDetailNote");
+  if (note) note.textContent = "订单金额 ¥" + fmt(vendorOrderAmount(o), 0) + " · 已验收 " + fmt(o.acceptedPct, 0) + "%";
+}
+function renderVendorHeat() {
+  var head = document.getElementById("vendorHeatHead");
+  var tb = document.querySelector("#vendorHeatTable tbody");
+  if (!head || !tb) return;
+  head.innerHTML = "";
+  tb.innerHTML = "";
+  var now = new Date();
+  var monday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+  var weeks = 12;
+  var th0 = document.createElement("th"); th0.textContent = "供应商"; th0.style.textAlign = "left"; head.appendChild(th0);
+  for (var w = 0; w < weeks; w++) {
+    var d = new Date(monday.getTime() + w * 7 * 86400000);
+    var th = document.createElement("th");
+    th.textContent = pad2(d.getMonth() + 1) + "/" + pad2(d.getDate());
+    head.appendChild(th);
+  }
+  state.vendors.forEach(function (v) {
+    var tr = document.createElement("tr");
+    var td0 = document.createElement("td"); td0.textContent = v.name; td0.style.textAlign = "left"; td0.style.fontWeight = "600";
+    tr.appendChild(td0);
+    var cap = vendorCapacityTotal(v);
+    var loads = {};
+    for (var i = 0; i < weeks; i++) loads[i] = 0;
+    state.vendorOrders.forEach(function (o) {
+      if (o.vendorId !== v.id || !o.start || !o.end) return;
+      var os = parseDate(o.start), oe = parseDate(o.end);
+      if (!os || !oe || oe <= os) return;
+      var ow = Math.max(1, (oe.getTime() - os.getTime()) / 86400000 / 7);
+      for (var k = 0; k < weeks; k++) {
+        var ws = new Date(monday.getTime() + k * 7 * 86400000);
+        var we = new Date(ws.getTime() + 7 * 86400000);
+        var ov = Math.max(0, Math.min(oe.getTime(), we.getTime()) - Math.max(os.getTime(), ws.getTime()));
+        if (ov > 0) loads[k] += num(o.md, 0) * (ov / (oe.getTime() - os.getTime()));
+      }
+    });
+    for (var k = 0; k < weeks; k++) {
+      var td = document.createElement("td");
+      var use = loads[k];
+      var ratio = cap > 0 ? use / cap : (use > 0 ? 2 : 0);
+      td.textContent = fmt(use, 0) + "/" + fmt(cap, 0);
+      td.style.fontSize = "11.5px";
+      if (ratio > 1) { td.style.background = "#fdecea"; td.style.color = "#c0392b"; }
+      else if (ratio > 0.85) td.style.background = "#fff3cd";
+      else if (ratio > 0) td.style.background = "#eaf4ea";
+      tr.appendChild(td);
+    }
+    tb.appendChild(tr);
+  });
+}
+function renderVendorRisks() {
+  var box = document.getElementById("vendorRiskList");
+  if (!box) return;
+  box.innerHTML = "";
+  var today = new Date();
+  var items = [];
+  state.vendors.forEach(function (v) {
+    if (v.contractEnd) {
+      var ce = parseDate(v.contractEnd);
+      if (ce) {
+        var days = (ce.getTime() - today.getTime()) / 86400000;
+        if (days >= 0 && days <= 60) items.push({ level: "高", text: v.name + " 合同 " + Math.round(days) + " 天后到期" });
+      }
+    }
+    if (v.risk === "高") items.push({ level: "高", text: v.name + " 风险等级为高" });
+    var s = vendorOrderSummary(v.id);
+    var cap = vendorCapacityTotal(v) * Math.max(1, s.weeks);
+    if (cap > 0 && s.md / cap > 1) items.push({ level: "中", text: v.name + " 负荷 " + fmt(s.md / cap * 100, 0) + "%，超产能" });
+    state.vendorOrders.forEach(function (o) {
+      if (o.vendorId !== v.id) return;
+      if (o.end && o.status !== "已验收") {
+        var oe = parseDate(o.end);
+        if (oe && oe < today) items.push({ level: "中", text: v.name + " 订单「" + (o.scope || o.id) + "」已逾期" });
+      }
+      if (o.firstPass === "驳回") items.push({ level: "中", text: v.name + " 订单「" + (o.scope || o.id) + "」首检驳回" });
+    });
+  });
+  if (!items.length) {
+    box.innerHTML = '<div class="concl" style="border-left-color:#2f7d4f;background:#f2f8f4;">当前没有供应商风险提醒。</div>';
+    return;
+  }
+  items.slice(0, 30).forEach(function (it) {
+    var d = document.createElement("div");
+    d.className = "concl";
+    d.style.marginTop = "8px";
+    d.style.borderLeftColor = it.level === "高" ? "#c0392b" : "#d68910";
+    d.style.background = it.level === "高" ? "#fdecea" : "#fff8e1";
+    d.textContent = (it.level === "高" ? "⚠ " : "• ") + it.text;
+    box.appendChild(d);
+  });
+}
+
 function renderVendors() {
   ensureVendorData();
   var maxPrice = 0;
@@ -5435,6 +5763,10 @@ function renderVendors() {
   if (note) note.textContent = "共 " + state.vendors.length + " 家 · 承诺 " + fmt(committedMD, 0) + " 人天";
   var onote = document.getElementById("vendorOrderNote");
   if (onote) onote.textContent = "共 " + state.vendorOrders.length + " 个订单 · 金额 ¥" + fmt(committedAmount, 0);
+  renderVendorDetail();
+  renderVendorOrderDetail();
+  renderVendorHeat();
+  renderVendorRisks();
 }
 
 
@@ -6888,18 +7220,21 @@ function exportCSV() {
   ensureVendorData();
   push([]);
   push(["【供应商台账】"]);
-  push(["名称", "类型", "状态", "联系人", "周产能", "单价", "交期(周)", "返工%", "准时%", "质量(1-5)", "配合(1-5)", "合同起", "合同止", "备注"]);
+  push(["名称", "类型", "状态", "等级", "联系人", "内部负责人", "周产能", "单价", "交期(周)", "返工%", "准时%", "质量(1-5)", "配合(1-5)", "付款条件", "币种", "税率%", "NDA", "允许分包", "风险", "合同起", "合同止", "备注"]);
   state.vendors.forEach(function (v) {
-    push([v.name, v.type, v.status, v.contact || "", v.capacity, v.price, v.leadWeeks,
-      v.reworkPct, v.onTimePct, v.quality, v.cooperation, v.contractStart || "", v.contractEnd || "", v.note || ""]);
+    push([v.name, v.type, v.status, v.tier, v.contact || "", v.owner || "", v.capacity, v.price, v.leadWeeks,
+      v.reworkPct, v.onTimePct, v.quality, v.cooperation, v.paymentTerms, v.currency, v.taxRate,
+      v.nda ? "是" : "否", v.subcontract ? "是" : "否", v.risk,
+      v.contractStart || "", v.contractEnd || "", v.note || ""]);
   });
   push([]);
   push(["【供应商订单】"]);
-  push(["供应商", "管线", "范围/任务", "人天", "单价", "金额", "开始", "结束", "状态", "验收%", "备注"]);
+  push(["供应商", "管线", "范围/任务", "PO/SOW", "内部负责人", "供应商PM", "人天", "单价", "金额", "开始", "结束", "状态", "验收%", "发票状态", "发票金额", "已付款", "首检", "驳回原因", "备注"]);
   state.vendorOrders.forEach(function (o) {
     var v = vendorById(o.vendorId);
-    push([v ? v.name : "", o.pipeline, o.scope || "", o.md, o.rate, vendorOrderAmount(o),
-      o.start || "", o.end || "", o.status, o.acceptedPct, o.note || ""]);
+    push([v ? v.name : "", o.pipeline, o.scope || "", o.po || "", o.internalOwner || "", o.vendorPm || "",
+      o.md, o.rate, vendorOrderAmount(o), o.start || "", o.end || "", o.status, o.acceptedPct,
+      o.invoiceStatus, o.invoiceAmount, o.paidAmount, o.firstPass, o.rejectReason || "", o.note || ""]);
   });
   push([]);
   push(["【供应商评分】"]);
@@ -6908,7 +7243,8 @@ function exportCSV() {
   state.vendors.forEach(function (v) { vmax = Math.max(vmax, num(v.price, 0)); });
   state.vendors.map(function (v) {
     var s = vendorOrderSummary(v.id);
-    var load = num(v.capacity, 0) * Math.max(1, s.weeks) > 0 ? s.md / (num(v.capacity, 0) * Math.max(1, s.weeks)) * 100 : 0;
+    var vcap = vendorCapacityTotal(v) * Math.max(1, s.weeks);
+    var load = vcap > 0 ? s.md / vcap * 100 : 0;
     return { v: v, s: s, load: load, score: vendorScore(v, vmax).total };
   }).sort(function (a, b) { return b.score - a.score; }).forEach(function (x) {
     push([x.v.name, fmt(x.score, 0), fmt(x.s.md, 0), fmt(x.load, 0) + "%", x.load > 100 ? "超负荷" : "正常"]);
@@ -7200,6 +7536,16 @@ function resetAll() {
   });
   document.getElementById("vendorAdd").addEventListener("click", vendorAdd);
   document.getElementById("vendorOrderAdd").addEventListener("click", vendorOrderAdd);
+  document.getElementById("vendorDetailPick").addEventListener("change", function () {
+    ensureVendorData();
+    state.vendorPicked = this.value;
+    renderVendors(); save();
+  });
+  document.getElementById("vendorOrderPick").addEventListener("change", function () {
+    ensureVendorData();
+    state.vendorOrderPicked = this.value;
+    renderVendors(); save();
+  });
   document.getElementById("wbsAdd").addEventListener("click", wbsAddScene);
   document.getElementById("wbsRebuild").addEventListener("click", wbsRebuild);
   document.getElementById("wbsApplyCounts").addEventListener("click", wbsApplyCounts);
