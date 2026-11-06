@@ -40,11 +40,36 @@ https://stevenqii.github.io/art-capacity-calculator/
 skills/art-capacity-calculator/
 ├── SKILL.md
 ├── assets/art-capacity-calculator.html
+├── examples/
+│   └── scope-example.json
+├── scripts/
+│   └── scope-to-plan.mjs
 └── references/
     ├── methodology.md
     ├── audit-checklist.md
-    └── examples.md
+    ├── examples.md
+    ├── scope-schema.md
+    └── scope-template.md
 ```
+
+安装后可以：
+
+- 输入一份策划文档，先转成 `scope.json`（含假设）
+- 确认范围后，运行 `scripts/scope-to-plan.mjs` 直接输出排期摘要和逐任务 CSV
+- 也可以直接打开 `assets/art-capacity-calculator.html` 交互调整
+
+### 策划文档 → 排期
+
+```bash
+node scripts/scope-to-plan.mjs scope.json --out plan.csv
+```
+
+输出：
+
+- 终端摘要：各管线总人天、目标、建议工期、缺口、卡点
+- `plan.csv`：角色资源块 + 场景逐任务 + UI 逐任务的开始/结束日期
+
+字段说明见 `references/scope-schema.md`，输入模板见 `references/scope-template.md`。
 
 安装到用户级 DSH skill 目录：
 
