@@ -41,6 +41,13 @@ https://stevenqii.github.io/art-capacity-calculator/
 - 项目组合：当前项目 + 其他项目按资源池平衡，显示超配与缺口
 - 资产台账：角色 / 场景 / UI 都可填累计实际人天与返工
 
+### 供应商 · 管理
+- 供应商台账：类型、状态、联系人、周产能、单价、交期、返工、准时、合同
+- 供应商订单：项目 / 管线 / 范围 / 人天 / 单价 / 金额 / 验收
+- 评分：质量 / 准时 / 返工 / 价格 / 配合
+- 产能负荷与超负荷提示
+- 承诺人天、承诺金额、平均评分
+
 ## 作为 DSH Skill 使用
 
 仓库里的 `skills/art-capacity-calculator/` 是 DeepSeek Harness 的 skill 版本：
@@ -132,6 +139,9 @@ cp -R skills/art-capacity-calculator ~/.dsh/skills/
 ### 项目组合
 ![项目组合](screenshots/portfolio.png)
 
+### 供应商 · 管理
+![供应商管理](screenshots/vendor.png)
+
 ### 场景独立职级系数
 ![场景系数](screenshots/coef.png)
 
@@ -161,7 +171,8 @@ https://<your-github-username>.github.io/art-capacity-calculator/
     ├── people.png
     ├── portfolio.png
     ├── scene.png
-    └── ui.png
+    ├── ui.png
+    └── vendor.png
 ```
 
 ## 说明
