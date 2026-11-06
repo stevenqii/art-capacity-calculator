@@ -294,5 +294,6 @@ P50 / P80 / 按期概率 / 主要波动源
 - `references/scope-schema.md`：策划文档 → 范围 JSON 的字段规则。
 - `references/scope-template.md`：给策划/PM 填的输入模板。
 - `examples/scope-example.json`：完整范围示例。
+- `examples/planning-doc-example.md`：简化策划文档示例，可对照 scope JSON 看映射。
 - `scripts/scope-to-plan.mjs`：范围 JSON → 排期摘要 + 逐任务 CSV。
 - `assets/art-capacity-calculator.html`：交互版工具。
