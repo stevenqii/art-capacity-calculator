@@ -1,0 +1,67 @@
+{
+  "project": {
+    "name": "示例项目",
+    "startDate": "2026-11-09",
+    "targetWeeks": 18,
+    "bufferWeeks": 1,
+    "daysPerMonth": 21.75,
+    "eff": 0.85,
+    "holidays": [
+      { "name": "元旦", "start": "2027-01-01", "end": "2027-01-03" }
+    ]
+  },
+  "roster": [
+    { "name": "原画组长", "group": "原画组", "level": "lead", "load": 100 },
+    { "name": "原画中级", "group": "原画组", "level": "mid", "load": 100 },
+    { "name": "模型组长", "group": "模型组", "level": "lead", "load": 100 },
+    { "name": "模型中级 1", "group": "模型组", "level": "mid", "load": 100 },
+    { "name": "模型中级 2", "group": "模型组", "level": "mid", "load": 100 },
+    { "name": "动作兼绑定", "group": "绑定组", "level": "mid", "load": 100 },
+    { "name": "动作中级", "group": "动作组", "level": "mid", "load": 100 },
+    { "name": "特效中级", "group": "特效组", "level": "mid", "load": 100 },
+    { "name": "整合中级", "group": "整合组", "level": "mid", "load": 100 },
+    { "name": "场景原画 1", "group": "场景原画组", "level": "mid", "load": 100 },
+    { "name": "场景原画 2", "group": "场景原画组", "level": "mid", "load": 100 },
+    { "name": "场景模型 1", "group": "场景模型组", "level": "mid", "load": 100 },
+    { "name": "场景模型 2", "group": "场景模型组", "level": "mid", "load": 100 },
+    { "name": "场景模型 3", "group": "场景模型组", "level": "mid", "load": 100 },
+    { "name": "场景编辑 1", "group": "地编组", "level": "mid", "load": 100 },
+    { "name": "场景编辑 2", "group": "地编组", "level": "mid", "load": 100 },
+    { "name": "UI 视觉", "group": "UI视觉组", "level": "mid", "load": 100 },
+    { "name": "UI 动效", "group": "UI动效组", "level": "mid", "load": 100 },
+    { "name": "UI 整合", "group": "UI整合组", "level": "mid", "load": 100 }
+  ],
+  "pipelines": {
+    "character": {
+      "counts": {
+        "S": { "chars": 1, "actions": 8, "fx": 3 },
+        "A": { "chars": 2, "actions": 4, "fx": 2 },
+        "B": { "chars": 2, "actions": 2, "fx": 1 }
+      }
+    },
+    "scene": {
+      "targetWeeks": 18,
+      "kitMD": 0,
+      "scenes": [
+        { "code": "S01", "name": "主城", "tier": "S", "area": 2000, "batch": "P0", "reuse": 0 },
+        { "code": "A01", "name": "野外", "tier": "A", "area": 800, "batch": "P1", "reuse": 30 },
+        { "code": "A02", "name": "野外 2", "tier": "A", "area": 800, "batch": "P1", "reuse": 30 },
+        { "code": "B01", "name": "副本", "tier": "B", "area": 300, "batch": "P2", "reuse": 40 }
+      ]
+    },
+    "ui": {
+      "targetWeeks": 14,
+      "kitMD": 8,
+      "screens": [
+        { "code": "U01", "name": "登录", "module": "登录", "tier": "S", "batch": "P0", "reuse": 0 },
+        { "code": "U02", "name": "主界面", "module": "主界面", "tier": "S", "batch": "P0", "reuse": 0 },
+        { "code": "U03", "name": "背包", "module": "背包", "tier": "A", "batch": "P1", "reuse": 30 },
+        { "code": "U04", "name": "设置", "module": "设置", "tier": "B", "batch": "P2", "reuse": 40 }
+      ]
+    }
+  },
+  "assumptions": [
+    "示例文档未写具体动作组数，按 1 个 S / 2 个 A / 2 个 B 估算",
+    "场景面积按 S 2000 / A 800 / B 300 估算"
+  ]
+}
