@@ -22,6 +22,7 @@ https://stevenqii.github.io/art-capacity-calculator/
 ### 场景 · 任务拆解 / 计划排期 / 人力产能
 - 概念 / 拆分 / 白模 / 模型 / 材质 / 地编 / 灯光 / 优化八道工序
 - 场景原画 / 场景模型 / 场景编辑三个资源池
+- 独立计算口径：每月工作日 / 有效工时 / 启动日 / 目标周期 / 交付缓冲
 - 逐场景依赖排期：每个场景按工序顺序走，资源池排队，给出真实开始/结束日期
 - 场景 WBS：面积系数、组件复用、模块库、批次、门禁
 - 场景缺口三解、三点估算、方案对比、资产台账
@@ -29,6 +30,7 @@ https://stevenqii.github.io/art-capacity-calculator/
 ### UI · 排期计划
 - UX / 视觉 / 切图 / 动效 / 整合 / 适配 / 验收七道工序
 - UI视觉 / UI动效 / UI整合三个资源池
+- 独立计算口径：每月工作日 / 有效工时 / 启动日 / 目标周期 / 交付缓冲
 - 按界面逐条排期，组件库单独按一次性投入
 - UI 人员批量添加、名单导入、独立职级系数、团队产能
 
@@ -134,8 +136,14 @@ cp -R skills/art-capacity-calculator ~/.dsh/skills/
 ### 场景 · 计划排期
 ![场景排期](screenshots/scene.png)
 
+### 场景独立计算口径
+![场景计算口径](screenshots/scene-params.png)
+
 ### UI · 排期计划
 ![UI 排期](screenshots/ui.png)
+
+### UI 独立计算口径
+![UI 计算口径](screenshots/ui-params.png)
 
 ### 执行 · 基线质量
 ![执行跟踪](screenshots/exec.png)
@@ -187,7 +195,9 @@ https://<your-github-username>.github.io/art-capacity-calculator/
     ├── people.png
     ├── portfolio.png
     ├── scene.png
+    ├── scene-params.png
     ├── ui.png
+    ├── ui-params.png
     └── vendor.png
 ```
 
