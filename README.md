@@ -38,6 +38,8 @@ https://stevenqii.github.io/art-capacity-calculator/
 - 挣值、CPI、预测工期、偏差、滞后管线
 - 人员可用性：其他项目占用、请假周、冲突提示
 - 21 个质量门禁：状态、轮次、反馈、返工人天、评审人
+- 项目组合：当前项目 + 其他项目按资源池平衡，显示超配与缺口
+- 资产台账：角色 / 场景 / UI 都可填累计实际人天与返工
 
 ## 作为 DSH Skill 使用
 
@@ -127,6 +129,9 @@ cp -R skills/art-capacity-calculator ~/.dsh/skills/
 ### 执行 · 基线质量
 ![执行跟踪](screenshots/exec.png)
 
+### 项目组合
+![项目组合](screenshots/portfolio.png)
+
 ### 场景独立职级系数
 ![场景系数](screenshots/coef.png)
 
@@ -154,6 +159,7 @@ https://<your-github-username>.github.io/art-capacity-calculator/
     ├── coef.png
     ├── exec.png
     ├── people.png
+    ├── portfolio.png
     ├── scene.png
     └── ui.png
 ```
